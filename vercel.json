@@ -5,7 +5,7 @@
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/:path((?!_next/|api/|.*\\.).*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ],
