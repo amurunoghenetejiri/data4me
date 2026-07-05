@@ -133,8 +133,8 @@ export default function AdminLayout() {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-slate-900 border-r border-white/10 animate-in slide-in-from-left overflow-y-auto overscroll-contain">
-            <div className="sticky right-2 top-2 flex justify-end"><Button size="icon" variant="ghost" onClick={() => setMobileOpen(false)}><X className="h-5 w-5" /></Button></div>
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-slate-900 border-r border-white/10 animate-in slide-in-from-left">
+            <div className="absolute right-2 top-2"><Button size="icon" variant="ghost" onClick={() => setMobileOpen(false)}><X className="h-5 w-5" /></Button></div>
             {SidebarBody}
           </aside>
         </div>

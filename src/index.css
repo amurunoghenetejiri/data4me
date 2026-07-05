@@ -127,15 +127,9 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  html, body {
+  body {
     @apply bg-background text-foreground;
     font-feature-settings: "ss01", "cv11";
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-  }
-  #root {
-    min-height: 100vh;
-    min-height: 100dvh;
   }
 }
 
