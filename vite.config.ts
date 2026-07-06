@@ -10,8 +10,6 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
-    // SPA fallback: All non-file requests go to index.html for client-side routing
-    middlewareMode: false,
   },
   plugins: [react()].filter(Boolean),
   resolve: {
@@ -19,9 +17,5 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
-  },
-  // Ensure index.html is treated as the fallback for all routes in dev
-  preview: {
-    allowedHosts: true,
   },
 }));

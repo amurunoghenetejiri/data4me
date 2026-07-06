@@ -1,33 +1,33 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
   <defs>
-    <linearGradient id="gradientMain" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#1dd1a1;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#00d2d3;stop-opacity:1" />
     </linearGradient>
   </defs>
   
-  <!-- Dark background -->
-  <rect width="512" height="512" fill="#000d1a"/>
+  <!-- Background -->
+  <rect width="256" height="256" fill="#0f1419"/>
   
-  <!-- Main D4 Logo - Centered and large -->
-  <g transform="translate(256, 256)">
-    <!-- D Character with speed effect -->
-    <g transform="translate(-80, 0)">
-      <!-- D outline -->
-      <path d="M -40,-80 L 0,-80 Q 80,-80 80,0 Q 80,80 0,80 L -40,80 Z" 
-            fill="none" stroke="url(#gradientMain)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Main D4 Logo -->
+  <g transform="translate(128, 90)">
+    <!-- D Character -->
+    <g transform="translate(-45, 0)">
+      <!-- D outline with speed effect -->
+      <path d="M -20,-25 L 10,-25 Q 30,-25 30,0 Q 30,25 10,25 L -20,25 Z" 
+            fill="none" stroke="url(#grad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
       
       <!-- Speed lines on D -->
-      <line x1="-60" y1="-60" x2="-5" y2="-60" stroke="url(#gradientMain)" stroke-width="12" stroke-linecap="round" opacity="0.9"/>
-      <line x1="-70" y1="-15" x2="10" y2="-15" stroke="url(#gradientMain)" stroke-width="12" stroke-linecap="round" opacity="0.7"/>
-      <line x1="-60" y1="30" x2="-5" y2="30" stroke="url(#gradientMain)" stroke-width="12" stroke-linecap="round" opacity="0.9"/>
-      <line x1="-55" y1="75" x2="5" y2="75" stroke="url(#gradientMain)" stroke-width="12" stroke-linecap="round" opacity="0.7"/>
+      <line x1="-30" y1="-18" x2="-10" y2="-18" stroke="url(#grad)" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+      <line x1="-32" y1="-5" x2="-8" y2="-5" stroke="url(#grad)" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+      <line x1="-30" y1="8" x2="-12" y2="8" stroke="url(#grad)" stroke-width="4" stroke-linecap="round" opacity="0.9"/>
+      <line x1="-28" y1="21" x2="-6" y2="21" stroke="url(#grad)" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
     </g>
     
     <!-- Number 4 -->
-    <g transform="translate(70, 0)">
-      <path d="M 10,-80 L 80,80 M 80,80 L 80,-20 M -30,35 L 100,35" 
-            fill="none" stroke="url(#gradientMain)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(35, 0)">
+      <path d="M 5,-25 L 30,25 M 30,25 L 30,-8 M -15,10 L 35,10" 
+            fill="none" stroke="url(#grad)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
   </g>
 </svg>
