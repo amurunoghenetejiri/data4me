@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Users, UserPlus, Activity, Receipt, Hourglass, Wallet, ArrowUpFromLine, Shield, TrendingUp, Coins, XCircle, RotateCcw } from "lucide-react";
 import { GlassCard, LoadingBlock, PageHead, Stat, StatusPill, fmtNaira } from "./_shared";
 import { Link } from "react-router-dom";
+import SmePlugWidget from "./SmePlugWidget";
 
 export default function AdminDashboard() {
   const { data, isLoading, refetch } = useQuery({
@@ -160,6 +161,10 @@ export default function AdminDashboard() {
                 All systems operational — last checked {new Date().toLocaleTimeString()}
               </div>
             </GlassCard>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-4 mt-4">
+            <SmePlugWidget />
           </div>
         </>
       )}

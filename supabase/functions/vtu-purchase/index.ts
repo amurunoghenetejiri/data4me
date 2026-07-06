@@ -1,78 +1,28 @@
-// DATA4ME — VTU Purchase Edge Function (production)
-// Fixes: correct SMEAPI base URL + auth + PIN, correct debit_wallet result parsing,
-// only refund on confirmed provider failure, complete transaction via direct update.
+// DATA4ME — VTU Purchase Edge Function
+// PROVIDER: SME Plug (https://smeplug.ng/api/v1)
+//
+// Guarantees:
+//  • Wallet balance is checked, then debited ONCE via `debit_wallet` RPC.
+//  • Provider response is verified; only CONFIRMED failures auto-refund.
+//    Ambiguous responses (timeouts / 5xx) are left `pending` for manual review.
+//  • All lifecycle events are logged.
+//
+// Actions:
+//   buy-airtime      { network, phone, amount }
+//   buy-data         { plan_id, phone }
+//   buy-electricity  { disco, meter_number, meter_type, amount, phone }
+//   buy-cable        { provider, smart_card_number, package_code, phone }
+//   buy-exam-pin     { exam, quantity }   // exam: 'waec' | 'neco' | 'nabteb'
+//
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+// >>> CONFIGURATION: add / update these in Project Settings → Secrets:
+// >>>   SMEPLUG_API_KEY   (required — get from SME Plug dashboard)
+// >>>   SMEPLUG_BASE_URL  (optional — defaults to https://smeplug.ng/api/v1)
+// >>> The base URL can also be edited from the Admin > SME Plug page.
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2.45.0';
-
-// ============================================
-// CONFIG
-// ============================================
-
-interface Config {
-  supabaseUrl: string;
-  supabaseServiceKey: string;
-  smeapiKey: string;
-  smeapiUsername: string;
-  smeapiPin: string;
-  smeapiBaseUrl: string;
-}
-
-function loadConfig(): Config {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-  // Accept both names for backwards compat, prefer SMEAPI_API_KEY
-  const smeapiKey =
-    Deno.env.get('SMEAPI_API_KEY') || Deno.env.get('SMEAPI_KEY') || '';
-  const smeapiUsername = Deno.env.get('SMEAPI_USERNAME') || '';
-  const smeapiPin = Deno.env.get('SMEAPI_PIN') || '';
-  const smeapiBaseUrl =
-    Deno.env.get('SMEAPI_BASE_URL') || 'https://smeapi.com/api';
-
-  if (!supabaseUrl) throw new Error('SUPABASE_URL not configured');
-  if (!supabaseServiceKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
-  if (!smeapiKey) throw new Error('SMEAPI_API_KEY not configured');
-
-  return {
-    supabaseUrl,
-    supabaseServiceKey,
-    smeapiKey,
-    smeapiUsername,
-    smeapiPin,
-    smeapiBaseUrl,
-  };
-}
-
-// ============================================
-// LOGGER
-// ============================================
-
-function createLogger() {
-  const logs: any[] = [];
-  const emit = (level: string, step: string, data: any = {}, error?: any) => {
-    const entry = {
-      timestamp: new Date().toISOString(),
-      level,
-      step,
-      data,
-      ...(error !== undefined
-        ? { error: error instanceof Error ? error.message : String(error) }
-        : {}),
-    };
-    logs.push(entry);
-    console.log(`[${level}] ${step}`, JSON.stringify(entry));
-  };
-  return {
-    log: (step: string, data?: any) => emit('INFO', step, data),
-    error: (step: string, error: any, data?: any) => emit('ERROR', step, data, error),
-    getLogs: () => logs,
-  };
-}
-type Logger = ReturnType<typeof createLogger>;
-
-// ============================================
-// RESPONSES
-// ============================================
 
 const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
 const ok = (data: any) =>
@@ -80,440 +30,360 @@ const ok = (data: any) =>
 const fail = (error: string, status = 400, extra: any = {}) =>
   new Response(JSON.stringify({ success: false, error, ...extra }), { status, headers: jsonHeaders });
 
-// ============================================
-// VALIDATION
-// ============================================
+// ---------- Logger ----------
+function mkLogger() {
+  return {
+    log: (step: string, data: any = {}) => console.log(`[VTU][INFO] ${step}`, JSON.stringify(data)),
+    error: (step: string, err: any, data: any = {}) =>
+      console.error(`[VTU][ERROR] ${step}`, err instanceof Error ? err.message : err, JSON.stringify(data)),
+  };
+}
+type Logger = ReturnType<typeof mkLogger>;
 
-const NETWORKS = ['MTN', 'GLO', 'AIRTEL', '9MOBILE'];
+// ---------- Validation ----------
 const validPhone = (p: string) => typeof p === 'string' && /^0\d{10}$/.test(p.trim());
 const validUuid = (v: string) =>
   typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
-function normalizeNetwork(n: string): string | null {
-  const u = (n || '').toUpperCase().trim();
-  return NETWORKS.includes(u) ? u : null;
-}
-
-// SMEAPI network codes (integer IDs used by /data endpoint)
-const NETWORK_CODES: Record<string, number> = {
+// SME Plug network IDs
+const SMEPLUG_NETWORK_ID: Record<string, number> = {
   MTN: 1,
   GLO: 2,
-  AIRTEL: 4,
-  '9MOBILE': 3,
+  AIRTEL: 3,
+  '9MOBILE': 4,
+};
+const NETWORKS = Object.keys(SMEPLUG_NETWORK_ID);
+const normalizeNetwork = (n: string) => {
+  const u = (n || '').toUpperCase().trim();
+  return NETWORKS.includes(u) ? u : null;
 };
 
-// ============================================
-// SMEAPI CLIENT
-// ============================================
+// ---------- SME Plug Client ----------
+interface Config {
+  supabaseUrl: string;
+  serviceKey: string;
+  apiKey: string;
+  baseUrl: string;
+}
 
-async function smeapiCall(
-  cfg: Config,
-  logger: Logger,
-  path: string,
-  body: any,
-): Promise<{ httpOk: boolean; status: number; body: any; raw: string; networkError?: string }> {
-  const url = `${cfg.smeapiBaseUrl}${path}`;
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${cfg.smeapiKey}`,
-    'x-api-key': cfg.smeapiKey,
-  };
-  if (cfg.smeapiUsername) headers['x-username'] = cfg.smeapiUsername;
+async function loadConfig(): Promise<Config> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  const apiKey = Deno.env.get('SMEPLUG_API_KEY') || '';
+  if (!supabaseUrl || !serviceKey) throw new Error('Supabase env vars missing');
+  if (!apiKey) throw new Error('SMEPLUG_API_KEY is not configured');
+  // base_url from smeplug_config table if present
+  const svc = createClient(supabaseUrl, serviceKey);
+  const { data } = await svc
+    .from('smeplug_config').select('base_url,is_active')
+    .eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  const baseUrl = (data?.base_url as string) || Deno.env.get('SMEPLUG_BASE_URL') || 'https://smeplug.ng/api/v1';
+  return { supabaseUrl, serviceKey, apiKey, baseUrl };
+}
 
-  logger.log('SMEAPI_REQUEST', { url, bodyKeys: Object.keys(body || {}) });
-
+async function smeplugPost(
+  cfg: Config, logger: Logger, path: string, body: any,
+): Promise<{ httpOk: boolean; status: number; body: any; networkError?: string }> {
+  const url = `${cfg.baseUrl}${path}`;
+  logger.log('SMEPLUG_REQUEST', { url, bodyKeys: Object.keys(body || {}) });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 25000);
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000);
     const res = await fetch(url, {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${cfg.apiKey}`,
+      },
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    clearTimeout(timeout);
     const raw = await res.text();
     let parsed: any;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      parsed = { raw };
-    }
-    logger.log('SMEAPI_RESPONSE', { status: res.status, body: parsed });
-    return { httpOk: res.ok, status: res.status, body: parsed, raw };
+    try { parsed = JSON.parse(raw); } catch { parsed = { raw }; }
+    logger.log('SMEPLUG_RESPONSE', { status: res.status, body: parsed });
+    return { httpOk: res.ok, status: res.status, body: parsed };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    logger.error('SMEAPI_NETWORK_ERROR', err, { url });
-    return { httpOk: false, status: 0, body: null, raw: '', networkError: msg };
+    logger.error('SMEPLUG_NETWORK_ERROR', err, { url });
+    return { httpOk: false, status: 0, body: null, networkError: (err as Error).message };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
-/**
- * Determine whether an SMEAPI response is a CONFIRMED success.
- * Conservative: unknown/ambiguous responses are NOT treated as success — we do NOT refund
- * on ambiguity either (see caller). SMEAPI (smeplug) returns { status: 'success', ... } on OK.
- */
-function isConfirmedSuccess(resp: { httpOk: boolean; status: number; body: any }): boolean {
-  if (!resp.httpOk || !resp.body) return false;
-  const b = resp.body;
-  const status = String(b.Status ?? b.status ?? '').toLowerCase().trim();
-  if (['success', 'successful', 'completed', 'complete'].includes(status)) return true;
-  if (b.success === true || b.successful === true) return true;
-  if (typeof b.message === 'string' && /success|delivered|completed/i.test(b.message)) return true;
+// SME Plug success shape: { status: true, msg: 'Successful', data: {...} }
+function isConfirmedSuccess(r: { httpOk: boolean; status: number; body: any }): boolean {
+  if (!r.httpOk || !r.body) return false;
+  const b = r.body;
+  if (b.status === true) return true;
+  const s = String(b.status ?? '').toLowerCase();
+  if (['success', 'successful', 'completed', 'delivered'].includes(s)) return true;
   return false;
 }
-
-/**
- * Determine whether the response is an EXPLICIT failure the provider is confident about.
- * Only on explicit failure do we refund. Ambiguous responses become "pending" instead.
- */
-function isConfirmedFailure(resp: { httpOk: boolean; status: number; body: any; networkError?: string }): boolean {
-  // Client-side validation errors from provider (4xx) are definite failures
-  if (resp.status >= 400 && resp.status < 500) return true;
-  if (!resp.body) return false;
-  const b = resp.body;
-  const status = String(b.Status ?? b.status ?? '').toLowerCase().trim();
-  if (['failed', 'failure', 'error', 'declined', 'rejected'].includes(status)) return true;
-  if (b.success === false || b.successful === false) return true;
+function isConfirmedFailure(r: { httpOk: boolean; status: number; body: any; networkError?: string }): boolean {
+  if (r.status >= 400 && r.status < 500) return true;
+  if (!r.body) return false;
+  const b = r.body;
+  if (b.status === false) return true;
+  const s = String(b.status ?? '').toLowerCase();
+  if (['failed', 'failure', 'error', 'declined', 'rejected'].includes(s)) return true;
   if (typeof b.error === 'string' && b.error.length > 0) return true;
   return false;
 }
-
 function extractReference(body: any): string | null {
   if (!body || typeof body !== 'object') return null;
   return (
-    body.reference ??
-    body.ident ??
-    body.transaction_id ??
-    body.transactionId ??
-    body.ref ??
-    body.request_id ??
-    body.data?.reference ??
-    body.data?.id ??
-    null
+    body.data?.reference ?? body.data?.id ?? body.reference ??
+    body.transaction_id ?? body.ref ?? null
   );
 }
 
-// ============================================
-// TRANSACTION LIFECYCLE
-// ============================================
-
+// ---------- TX lifecycle ----------
 async function updateTx(svc: any, logger: Logger, txId: string, patch: Record<string, any>) {
-  try {
-    const { error } = await svc.from('transactions').update(patch).eq('id', txId);
-    if (error) logger.error('TX_UPDATE_FAILED', error, { txId, patch });
-  } catch (err) {
-    logger.error('TX_UPDATE_EXCEPTION', err, { txId });
-  }
+  const { error } = await svc.from('transactions').update(patch).eq('id', txId);
+  if (error) logger.error('TX_UPDATE_FAILED', error, { txId, patch });
 }
-
 async function issueRefund(svc: any, logger: Logger, txId: string, reason: string) {
-  try {
-    const { error } = await svc.rpc('refund_transaction', { _tx_id: txId, _reason: reason });
-    if (error) {
-      logger.error('REFUND_RPC_ERROR', error, { txId });
-      return false;
-    }
-    logger.log('REFUND_ISSUED', { txId, reason });
-    return true;
-  } catch (err) {
-    logger.error('REFUND_EXCEPTION', err, { txId });
-    return false;
-  }
+  const { error } = await svc.rpc('refund_transaction', { _tx_id: txId, _reason: reason });
+  if (error) { logger.error('REFUND_FAILED', error, { txId }); return false; }
+  logger.log('REFUND_ISSUED', { txId, reason });
+  return true;
 }
-
-// debit_wallet RPC returns a single `transactions` row (not an array).
 async function debitWallet(
-  svc: any,
-  logger: Logger,
-  userId: string,
-  amount: number,
-  type: string,
-  description: string,
-  meta: Record<string, any>,
+  svc: any, logger: Logger, userId: string, amount: number,
+  type: string, description: string, meta: Record<string, any>,
 ): Promise<{ txId: string | null; error?: string }> {
   const { data, error } = await svc.rpc('debit_wallet', {
-    _user_id: userId,
-    _amount: amount,
-    _type: type,
-    _description: description,
-    _meta: meta,
+    _user_id: userId, _amount: amount, _type: type, _description: description, _meta: meta,
   });
-  if (error) {
-    logger.error('DEBIT_WALLET_ERROR', error, { userId, amount });
-    return { txId: null, error: error.message || 'Failed to debit wallet' };
-  }
-  // PostgREST returns a single row for a function returning a composite type.
+  if (error) { logger.error('DEBIT_WALLET_ERROR', error, { userId, amount }); return { txId: null, error: error.message }; }
   const row = Array.isArray(data) ? data[0] : data;
-  const txId = row?.id ?? null;
-  if (!txId) {
-    logger.error('DEBIT_WALLET_NO_ROW', new Error('no row'), { data });
-    return { txId: null, error: 'Failed to create transaction' };
-  }
-  logger.log('WALLET_DEBITED', { txId, amount });
-  return { txId };
+  if (!row?.id) return { txId: null, error: 'Failed to create transaction' };
+  logger.log('WALLET_DEBITED', { txId: row.id, amount });
+  return { txId: row.id };
+}
+async function checkWallet(svc: any, userId: string, need: number): Promise<{ ok: boolean; error?: string }> {
+  const { data, error } = await svc.from('wallets').select('balance').eq('user_id', userId).maybeSingle();
+  if (error) return { ok: false, error: 'Failed to check wallet balance' };
+  const bal = Number(data?.balance || 0);
+  if (bal < need) return { ok: false, error: `Insufficient balance. Required: ₦${need}, Available: ₦${bal}` };
+  return { ok: true };
 }
 
-// ============================================
-// BUY AIRTIME
-// ============================================
+// ---------- Unified purchase runner ----------
+async function runPurchase(opts: {
+  svc: any; logger: Logger; userId: string;
+  txType: string; description: string; meta: Record<string, any>;
+  productAmount: number; chargeAmount: number;
+  path: string; payloadBuilder: (customerRef: string) => any;
+  successMessage: (data: any) => string;
+}) {
+  const total = opts.productAmount + opts.chargeAmount;
+  const balCheck = await checkWallet(opts.svc, opts.userId, total);
+  if (!balCheck.ok) return { success: false, error: balCheck.error };
 
-async function buyAirtime(
-  cfg: Config,
-  logger: Logger,
-  svc: any,
-  userId: string,
-  network: string,
-  phone: string,
-  amount: any,
-): Promise<{ success: boolean; data?: any; error?: string }> {
-  const net = normalizeNetwork(network);
-  if (!net) return { success: false, error: `Invalid network. Supported: ${NETWORKS.join(', ')}` };
-  if (!validPhone(phone)) return { success: false, error: 'Invalid Nigerian phone number. Format: 08012345678' };
-  const productAmount = Number(amount);
-  if (!Number.isFinite(productAmount) || productAmount < 50 || productAmount > 1_000_000) {
-    return { success: false, error: 'Amount must be between ₦50 and ₦1,000,000' };
-  }
-
-  const chargeAmount = 1;
-  const totalAmount = productAmount + chargeAmount;
-
-  // Balance check
-  const { data: wallet, error: wErr } = await svc
-    .from('wallets').select('balance').eq('user_id', userId).maybeSingle();
-  if (wErr) {
-    logger.error('WALLET_READ_ERROR', wErr, { userId });
-    return { success: false, error: 'Failed to check wallet balance' };
-  }
-  const balance = Number(wallet?.balance || 0);
-  if (balance < totalAmount) {
-    return { success: false, error: `Insufficient balance. Required: ₦${totalAmount}, Available: ₦${balance}` };
-  }
-
-  // Debit
-  const { txId, error: debitError } = await debitWallet(
-    svc, logger, userId, totalAmount, 'airtime',
-    `${net} airtime ₦${productAmount} to ${phone.trim()}`,
-    { product_amount: productAmount, charge_amount: chargeAmount, network: net, phone: phone.trim() },
+  const { txId, error: debitErr } = await debitWallet(
+    opts.svc, opts.logger, opts.userId, total, opts.txType, opts.description,
+    { ...opts.meta, product_amount: opts.productAmount, charge_amount: opts.chargeAmount },
   );
-  if (!txId) return { success: false, error: debitError || 'Failed to debit wallet' };
+  if (!txId) return { success: false, error: debitErr };
+  await updateTx(opts.svc, opts.logger, txId, { status: 'pending' });
 
-  // Mark pending for provider call
-  await updateTx(svc, logger, txId, { status: 'pending' });
+  const customerRef = `D4M-${txId.slice(0, 8)}-${Date.now()}`;
+  const cfg = await loadConfig();
+  const resp = await smeplugPost(cfg, opts.logger, opts.path, opts.payloadBuilder(customerRef));
 
-  // Call SMEAPI
-  const payload = {
-    network: NETWORK_CODES[net],
-    amount: productAmount,
-    mobile_number: phone.trim(),
-    Ported_number: true,
-    airtime_type: 'VTU',
-    pin: cfg.smeapiPin,
-  };
-  const resp = await smeapiCall(cfg, logger, '/topup/', payload);
-
-  // Persist provider response regardless of outcome
-  await updateTx(svc, logger, txId, {
-    provider_response: resp.body ?? { networkError: resp.networkError, raw: resp.raw },
-    supplier_reference: extractReference(resp.body),
+  await updateTx(opts.svc, opts.logger, txId, {
+    provider_response: resp.body ?? { networkError: resp.networkError },
+    supplier_reference: extractReference(resp.body) || customerRef,
   });
 
   if (isConfirmedSuccess(resp)) {
-    await updateTx(svc, logger, txId, { status: 'success' });
+    await updateTx(opts.svc, opts.logger, txId, { status: 'success' });
     return {
       success: true,
       data: {
-        txId, phone, network: net,
-        amount: productAmount, charge: chargeAmount, total: totalAmount,
-        supplier_reference: extractReference(resp.body),
-        message: `✓ Airtime purchase successful. ₦${productAmount} sent to ${phone}.`,
+        txId,
+        amount: opts.productAmount, charge: opts.chargeAmount, total,
+        supplier_reference: extractReference(resp.body) || customerRef,
+        message: opts.successMessage(resp.body?.data ?? resp.body),
       },
     };
   }
-
   if (isConfirmedFailure(resp)) {
-    const reason =
-      resp.body?.message || resp.body?.error || resp.networkError ||
-      `Provider rejected (HTTP ${resp.status})`;
-    await updateTx(svc, logger, txId, { status: 'failed' });
-    await issueRefund(svc, logger, txId, reason);
-    return { success: false, error: reason, data: { txId } };
+    const reason = resp.body?.msg || resp.body?.message || resp.body?.error ||
+      resp.networkError || `Provider rejected (HTTP ${resp.status})`;
+    await updateTx(opts.svc, opts.logger, txId, { status: 'failed' });
+    await issueRefund(opts.svc, opts.logger, txId, reason);
+    return { success: false, error: reason, data: { txId, refunded: true } };
   }
-
-  // Ambiguous (5xx, timeout, unknown shape) — leave as pending, do NOT refund automatically.
-  logger.log('SMEAPI_AMBIGUOUS', { txId, status: resp.status });
-  await updateTx(svc, logger, txId, { status: 'pending' });
+  opts.logger.log('SMEPLUG_AMBIGUOUS', { txId, status: resp.status });
   return {
     success: false,
-    error:
-      'Provider response was inconclusive. Your transaction is pending review — do not retry. If not delivered within 30 minutes, it will be refunded.',
+    error: 'Provider response was inconclusive. Your transaction is pending review — do not retry. If not delivered within 30 minutes it will be refunded.',
     data: { txId, pending: true },
   };
 }
 
-// ============================================
-// BUY DATA
-// ============================================
+// ---------- Handlers ----------
+async function buyAirtime(svc: any, logger: Logger, userId: string, p: any) {
+  const net = normalizeNetwork(p.network);
+  if (!net) return { success: false, error: `Invalid network. Supported: ${NETWORKS.join(', ')}` };
+  if (!validPhone(p.phone)) return { success: false, error: 'Invalid Nigerian phone number' };
+  const amount = Number(p.amount);
+  if (!Number.isFinite(amount) || amount < 50 || amount > 500_000)
+    return { success: false, error: 'Amount must be between ₦50 and ₦500,000' };
 
-async function buyData(
-  cfg: Config,
-  logger: Logger,
-  svc: any,
-  userId: string,
-  planId: string,
-  phone: string,
-): Promise<{ success: boolean; data?: any; error?: string }> {
-  if (!validUuid(planId)) return { success: false, error: 'Invalid plan ID' };
-  if (!validPhone(phone)) return { success: false, error: 'Invalid Nigerian phone number. Format: 08012345678' };
+  return runPurchase({
+    svc, logger, userId,
+    txType: 'airtime',
+    description: `${net} airtime ₦${amount} to ${p.phone.trim()}`,
+    meta: { network: net, phone: p.phone.trim() },
+    productAmount: amount, chargeAmount: 0,
+    path: '/ng/airtime',
+    payloadBuilder: (ref) => ({
+      network_id: SMEPLUG_NETWORK_ID[net],
+      phone: p.phone.trim(),
+      amount,
+      customer_reference: ref,
+    }),
+    successMessage: () => `✓ ₦${amount} airtime sent to ${p.phone}.`,
+  });
+}
 
-  const { data: plan, error: planErr } = await svc
-    .from('data_plans').select('*').eq('id', planId).eq('is_active', true).maybeSingle();
-  if (planErr) {
-    logger.error('PLAN_READ_ERROR', planErr, { planId });
-    return { success: false, error: 'Failed to fetch data plan' };
-  }
-  if (!plan) return { success: false, error: 'Data plan not found or inactive' };
-
+async function buyData(svc: any, logger: Logger, userId: string, p: any) {
+  if (!validUuid(p.plan_id)) return { success: false, error: 'Invalid plan ID' };
+  if (!validPhone(p.phone)) return { success: false, error: 'Invalid Nigerian phone number' };
+  const { data: plan, error } = await svc
+    .from('data_plans').select('*').eq('id', p.plan_id).eq('is_active', true).maybeSingle();
+  if (error || !plan) return { success: false, error: 'Data plan not found' };
   const net = normalizeNetwork(plan.network);
   if (!net) return { success: false, error: `Unsupported plan network: ${plan.network}` };
-  const productAmount = Number(plan.selling_price || 0);
-  if (productAmount <= 0) return { success: false, error: 'Invalid plan price' };
-  const chargeAmount = 1;
-  const totalAmount = productAmount + chargeAmount;
-
-  const { data: wallet, error: wErr } = await svc
-    .from('wallets').select('balance').eq('user_id', userId).maybeSingle();
-  if (wErr) return { success: false, error: 'Failed to check wallet balance' };
-  const balance = Number(wallet?.balance || 0);
-  if (balance < totalAmount) {
-    return { success: false, error: `Insufficient balance. Required: ₦${totalAmount}, Available: ₦${balance}` };
-  }
-
-  const { txId, error: debitError } = await debitWallet(
-    svc, logger, userId, totalAmount, 'data',
-    `${net} ${plan.data_size || plan.plan_name} data to ${phone.trim()}`,
-    {
-      product_amount: productAmount, charge_amount: chargeAmount,
-      plan_id: planId, network: net, data_size: plan.data_size, phone: phone.trim(),
-    },
-  );
-  if (!txId) return { success: false, error: debitError || 'Failed to debit wallet' };
-
-  await updateTx(svc, logger, txId, { status: 'pending' });
-
+  const price = Number(plan.selling_price || 0);
+  if (price <= 0) return { success: false, error: 'Invalid plan price' };
   const providerPlan = plan.api_code || plan.plan_id;
-  if (!providerPlan) {
-    await updateTx(svc, logger, txId, { status: 'failed' });
-    await issueRefund(svc, logger, txId, 'Plan has no provider api_code configured');
-    return { success: false, error: 'Data plan is missing provider mapping. Refunded.', data: { txId } };
-  }
+  if (!providerPlan) return { success: false, error: 'Plan is missing SME Plug mapping (api_code). Sync plans in Admin.' };
 
-  const payload = {
-    network: NETWORK_CODES[net],
-    mobile_number: phone.trim(),
-    plan: Number(providerPlan) || providerPlan,
-    Ported_number: true,
-    pin: cfg.smeapiPin,
-  };
-  const resp = await smeapiCall(cfg, logger, '/data/', payload);
-
-  await updateTx(svc, logger, txId, {
-    provider_response: resp.body ?? { networkError: resp.networkError, raw: resp.raw },
-    supplier_reference: extractReference(resp.body),
+  return runPurchase({
+    svc, logger, userId,
+    txType: 'data',
+    description: `${net} ${plan.data_size || plan.plan_name} to ${p.phone.trim()}`,
+    meta: { network: net, phone: p.phone.trim(), plan_id: p.plan_id, data_size: plan.data_size },
+    productAmount: price, chargeAmount: 0,
+    path: '/ng/data',
+    payloadBuilder: (ref) => ({
+      network_id: SMEPLUG_NETWORK_ID[net],
+      plan_id: Number(providerPlan) || providerPlan,
+      phone: p.phone.trim(),
+      customer_reference: ref,
+    }),
+    successMessage: () => `✓ ${plan.data_size || 'Data plan'} delivered to ${p.phone}.`,
   });
-
-  if (isConfirmedSuccess(resp)) {
-    await updateTx(svc, logger, txId, { status: 'success' });
-    return {
-      success: true,
-      data: {
-        txId, phone, network: net,
-        dataSize: plan.data_size,
-        amount: productAmount, charge: chargeAmount, total: totalAmount,
-        supplier_reference: extractReference(resp.body),
-        message: `✓ Data purchase successful. ${plan.data_size || ''} sent to ${phone}.`,
-      },
-    };
-  }
-
-  if (isConfirmedFailure(resp)) {
-    const reason =
-      resp.body?.message || resp.body?.error || resp.networkError ||
-      `Provider rejected (HTTP ${resp.status})`;
-    await updateTx(svc, logger, txId, { status: 'failed' });
-    await issueRefund(svc, logger, txId, reason);
-    return { success: false, error: reason, data: { txId } };
-  }
-
-  logger.log('SMEAPI_AMBIGUOUS', { txId, status: resp.status });
-  await updateTx(svc, logger, txId, { status: 'pending' });
-  return {
-    success: false,
-    error:
-      'Provider response was inconclusive. Your transaction is pending review — do not retry. If not delivered within 30 minutes, it will be refunded.',
-    data: { txId, pending: true },
-  };
 }
 
-// ============================================
-// MAIN HANDLER
-// ============================================
+async function buyElectricity(svc: any, logger: Logger, userId: string, p: any) {
+  const amount = Number(p.amount);
+  if (!p.disco) return { success: false, error: 'disco is required' };
+  if (!p.meter_number) return { success: false, error: 'meter_number is required' };
+  if (!Number.isFinite(amount) || amount < 100) return { success: false, error: 'Amount must be ≥ ₦100' };
 
+  return runPurchase({
+    svc, logger, userId,
+    txType: 'electricity',
+    description: `${p.disco} meter ${p.meter_number} — ₦${amount}`,
+    meta: { disco: p.disco, meter_number: p.meter_number, meter_type: p.meter_type || 'PREPAID' },
+    productAmount: amount, chargeAmount: 0,
+    path: '/networks/electric/vend',
+    payloadBuilder: (ref) => ({
+      disco_name: p.disco,
+      meter_number: p.meter_number,
+      meter_type: p.meter_type || 'PREPAID',
+      amount,
+      customer_reference: ref,
+    }),
+    successMessage: (d) => d?.token ? `✓ Token: ${d.token}` : `✓ Electricity purchase successful.`,
+  });
+}
+
+async function buyCable(svc: any, logger: Logger, userId: string, p: any) {
+  if (!p.provider) return { success: false, error: 'provider is required' };
+  if (!p.smart_card_number) return { success: false, error: 'smart_card_number is required' };
+  if (!p.package_code) return { success: false, error: 'package_code is required' };
+  const amount = Number(p.amount);
+  if (!Number.isFinite(amount) || amount <= 0) return { success: false, error: 'Amount required' };
+
+  return runPurchase({
+    svc, logger, userId,
+    txType: 'cable',
+    description: `${p.provider} ${p.package_code} — ${p.smart_card_number}`,
+    meta: { provider: p.provider, smart_card_number: p.smart_card_number, package_code: p.package_code },
+    productAmount: amount, chargeAmount: 0,
+    path: '/networks/tv/vend',
+    payloadBuilder: (ref) => ({
+      cable_name: p.provider,
+      smart_card_number: p.smart_card_number,
+      package: p.package_code,
+      customer_reference: ref,
+    }),
+    successMessage: () => `✓ Cable subscription successful.`,
+  });
+}
+
+async function buyExamPin(svc: any, logger: Logger, userId: string, p: any) {
+  const exam = String(p.exam || '').toLowerCase();
+  const qty = Number(p.quantity || 1);
+  if (!['waec', 'neco', 'nabteb'].includes(exam)) return { success: false, error: 'exam must be waec, neco or nabteb' };
+  if (!Number.isFinite(qty) || qty < 1 || qty > 20) return { success: false, error: 'quantity 1-20' };
+  const unit = Number(p.unit_price);
+  if (!Number.isFinite(unit) || unit <= 0) return { success: false, error: 'unit_price required' };
+  const amount = unit * qty;
+
+  return runPurchase({
+    svc, logger, userId,
+    txType: 'exam_pin',
+    description: `${exam.toUpperCase()} pin x${qty}`,
+    meta: { exam, quantity: qty },
+    productAmount: amount, chargeAmount: 0,
+    path: '/ng/education',
+    payloadBuilder: (ref) => ({ type: exam, quantity: qty, customer_reference: ref }),
+    successMessage: (d) => d?.pins ? `✓ Pins: ${JSON.stringify(d.pins)}` : `✓ Exam pin purchase successful.`,
+  });
+}
+
+// ---------- Main ----------
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  const logger = mkLogger();
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  if (!supabaseUrl || !serviceKey) return fail('Server misconfigured', 500);
+  if (!Deno.env.get('SMEPLUG_API_KEY')) return fail('SMEPLUG_API_KEY not configured', 500);
+  const svc = createClient(supabaseUrl, serviceKey);
 
-  const logger = createLogger();
-  let cfg: Config;
-  try {
-    cfg = loadConfig();
-  } catch (err) {
-    logger.error('CONFIG_LOAD_FAILED', err);
-    return fail('Server configuration error: ' + (err instanceof Error ? err.message : String(err)), 500);
-  }
+  const token = (req.headers.get('Authorization') || '').replace('Bearer ', '').trim();
+  if (!token) return fail('Authentication required', 401);
+  const { data: u, error: authErr } = await svc.auth.getUser(token);
+  if (authErr || !u?.user?.id) return fail('Invalid session', 401);
+  const userId = u.user.id;
 
-  const svc = createClient(cfg.supabaseUrl, cfg.supabaseServiceKey);
-
-  // Auth
-  let userId: string;
-  try {
-    const token = (req.headers.get('Authorization') || '').replace('Bearer ', '').trim();
-    if (!token) return fail('Authentication required', 401);
-    const { data, error } = await svc.auth.getUser(token);
-    if (error || !data?.user?.id) return fail('Invalid session', 401);
-    userId = data.user.id;
-  } catch (err) {
-    logger.error('AUTH_ERROR', err);
-    return fail('Authentication error', 401);
-  }
-
-  // Parse
   let payload: any;
-  try {
-    payload = await req.json();
-  } catch {
-    return fail('Invalid JSON in request body', 400);
-  }
+  try { payload = await req.json(); } catch { return fail('Invalid JSON', 400); }
   const action = payload?.action;
-  if (!action) return fail('Action is required (buy-airtime or buy-data)', 400);
 
   try {
-    if (action === 'buy-airtime') {
-      const { network, phone, amount } = payload;
-      const result = await buyAirtime(cfg, logger, svc, userId, network, phone, amount);
-      return result.success
-        ? ok(result.data)
-        : fail(result.error || 'Airtime purchase failed', 400, { data: result.data });
+    let result;
+    switch (action) {
+      case 'buy-airtime':     result = await buyAirtime(svc, logger, userId, payload); break;
+      case 'buy-data':        result = await buyData(svc, logger, userId, payload); break;
+      case 'buy-electricity': result = await buyElectricity(svc, logger, userId, payload); break;
+      case 'buy-cable':       result = await buyCable(svc, logger, userId, payload); break;
+      case 'buy-exam-pin':    result = await buyExamPin(svc, logger, userId, payload); break;
+      default: return fail(`Unknown action: ${action}`, 400);
     }
-    if (action === 'buy-data') {
-      const { plan_id, phone } = payload;
-      const result = await buyData(cfg, logger, svc, userId, plan_id, phone);
-      return result.success
-        ? ok(result.data)
-        : fail(result.error || 'Data purchase failed', 400, { data: result.data });
-    }
-    return fail('Unknown action. Use buy-airtime or buy-data', 400);
+    return result.success ? ok(result.data) : fail(result.error || 'Purchase failed', 400, { data: result.data });
   } catch (err) {
     logger.error('UNHANDLED', err);
-    return fail('An unexpected error occurred. Please try again later.', 500);
+    return fail('An unexpected error occurred', 500);
   }
 });
