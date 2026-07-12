@@ -15,18 +15,21 @@ interface Config {
   smeapiKey: string;
   smeapiBaseUrl: string;
   smeapiUsername?: string;
+  smeapiPin?: string;
 }
 
 function loadConfig(): Config {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const smeapiKey = Deno.env.get('SMEAPI_KEY') || '65AC10epAx6cC3C3bAC8Gg9BBAboa9t7i2Aqx2z5EAFBwxkCm1BIfydl483v1782217262';
-  const smeapiBaseUrl = Deno.env.get('SMEAPI_BASE_URL') || 'https://api.smeapi.net';
+  // Standardised on SMEAPI_* env vars (single VTU provider)
+  const smeapiKey = Deno.env.get('SMEAPI_API_KEY') || Deno.env.get('SMEAPI_KEY') || '';
+  const smeapiBaseUrl = Deno.env.get('SMEAPI_BASE_URL') || 'https://smeapi.com/api';
   const smeapiUsername = Deno.env.get('SMEAPI_USERNAME');
+  const smeapiPin = Deno.env.get('SMEAPI_PIN');
 
   if (!supabaseUrl) throw new Error('SUPABASE_URL not configured');
   if (!supabaseServiceKey) throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured');
-  if (!smeapiKey) throw new Error('SMEAPI_KEY not configured');
+  if (!smeapiKey) throw new Error('SMEAPI_API_KEY not configured');
 
   return {
     supabaseUrl,
@@ -34,8 +37,10 @@ function loadConfig(): Config {
     smeapiKey,
     smeapiBaseUrl,
     smeapiUsername,
+    smeapiPin,
   };
 }
+
 
 // ============================================
 // LOGGER (Structured Logging)
@@ -465,8 +470,9 @@ async function buyAirtime(
       mobile_number: phone.trim(),
       Ported_number: true,
       airtime_type: 'VTU',
-      pin: '',
+      pin: config.smeapiPin || '',
     };
+
 
     logger.log('SMEAPI_PAYLOAD_BUILT', smeapiPayload);
 
@@ -761,8 +767,9 @@ async function buyData(
       mobile_number: phone.trim(),
       plan: plan.api_code || plan.plan_id,
       Ported_number: true,
-      pin: '',
+      pin: config.smeapiPin || '',
     };
+
 
     logger.log('SMEAPI_PAYLOAD_BUILT', smeapiPayload);
 

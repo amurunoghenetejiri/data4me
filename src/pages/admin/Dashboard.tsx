@@ -1,8 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, UserPlus, Activity, Receipt, Hourglass, Wallet, ArrowUpFromLine, Shield, TrendingUp, Coins, XCircle, RotateCcw } from "lucide-react";
+import { Users, UserPlus, Activity, Receipt, Hourglass, Wallet, ArrowUpFromLine, Shield, TrendingUp, Coins, XCircle, RotateCcw, Wifi, RefreshCw } from "lucide-react";
 import { GlassCard, LoadingBlock, PageHead, Stat, StatusPill, fmtNaira } from "./_shared";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
+
 
 export default function AdminDashboard() {
   const { data, isLoading, refetch } = useQuery({
@@ -64,19 +66,23 @@ export default function AdminDashboard() {
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <Stat label="Total users" value={data!.totalUsers} icon={Users} accent="violet" />
-            <Stat label="New (7 days)" value={data!.newUsers} icon={UserPlus} accent="cyan" />
-            <Stat label="Active now" value={data!.active} icon={Activity} accent="emerald" hint="last 30 min" />
-            <Stat label="Total transactions" value={data!.totalTx} icon={Receipt} accent="violet" />
-            <Stat label="Revenue" value={fmtNaira(data!.revenue)} icon={Wallet} accent="emerald" />
-            <Stat label="Profit" value={fmtNaira(data!.profit)} icon={TrendingUp} accent="emerald" hint="selling − cost" />
-            <Stat label="Service charges" value={fmtNaira(data!.charges)} icon={Coins} accent="amber" hint="collected fees" />
-            <Stat label="Pending deposits" value={data!.pending} icon={Hourglass} accent="amber" />
-            <Stat label="Total deposits" value={fmtNaira(data!.deposits)} icon={Wallet} accent="cyan" />
-            <Stat label="Withdrawals" value={fmtNaira(data!.withdrawn)} icon={ArrowUpFromLine} accent="rose" />
-            <Stat label="Failed tx" value={data!.byStatus.failed || 0} icon={XCircle} accent="rose" />
-            <Stat label="Refunded tx" value={data!.byStatus.refunded || 0} icon={RotateCcw} accent="amber" />
+            <Stat to="/admin/users" label="Total users" value={data!.totalUsers} icon={Users} accent="violet" />
+            <Stat to="/admin/users" label="New (7 days)" value={data!.newUsers} icon={UserPlus} accent="cyan" />
+            <Stat to="/admin/activity" label="Active now" value={data!.active} icon={Activity} accent="emerald" hint="last 30 min" />
+            <Stat to="/admin/transactions" label="Total transactions" value={data!.totalTx} icon={Receipt} accent="violet" />
+            <Stat to="/admin/transactions" label="Revenue" value={fmtNaira(data!.revenue)} icon={Wallet} accent="emerald" />
+            <Stat to="/admin/pricing-charges" label="Profit" value={fmtNaira(data!.profit)} icon={TrendingUp} accent="emerald" hint="selling − cost" />
+            <Stat to="/admin/pricing-charges" label="Service charges" value={fmtNaira(data!.charges)} icon={Coins} accent="amber" hint="collected fees" />
+            <Stat to="/admin/deposits" label="Pending deposits" value={data!.pending} icon={Hourglass} accent="amber" />
+            <Stat to="/admin/deposits" label="Total deposits" value={fmtNaira(data!.deposits)} icon={Wallet} accent="cyan" />
+            <Stat to="/admin/withdrawals" label="Withdrawals" value={fmtNaira(data!.withdrawn)} icon={ArrowUpFromLine} accent="rose" />
+            <Stat to="/admin/transactions" label="Failed tx" value={data!.byStatus.failed || 0} icon={XCircle} accent="rose" />
+            <Stat to="/admin/transactions" label="Refunded tx" value={data!.byStatus.refunded || 0} icon={RotateCcw} accent="amber" />
           </div>
+
+          <VtuStatusPanel />
+
+
 
           <div className="grid lg:grid-cols-2 gap-4 mb-6">
             <GlassCard className="p-5">
@@ -166,6 +172,67 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+function VtuStatusPanel() {
+  const { data, isFetching, refetch } = useQuery({
+    queryKey: ["admin", "vtu-status"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("smeapi", { body: { action: "status" } });
+      if (error) throw error;
+      return data as { reachable: boolean; balance: number; latency_ms: number; status: number };
+    },
+    refetchInterval: 60_000,
+  });
+
+  const sync = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("smeapi", { body: { action: "sync-plans" } });
+      if (error) throw error;
+      return data as { inserted: number; updated: number; skipped: number };
+    },
+    onSuccess: (r) => toast.success(`Synced SMEAPI plans — ${r.inserted} new, ${r.updated} updated`),
+    onError: (e: any) => toast.error(e.message || "Sync failed"),
+  });
+
+  return (
+    <GlassCard className="p-5 mb-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/5 border border-emerald-500/30 grid place-items-center text-emerald-300">
+          <Wifi className="h-5 w-5" />
+        </div>
+        <div className="flex-1">
+          <h2 className="font-semibold text-white">SMEAPI · VTU Provider</h2>
+          <p className="text-xs text-slate-400">Primary VTU provider for airtime, data, cable & electricity.</p>
+        </div>
+        <button onClick={() => refetch()} disabled={isFetching} className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-200 flex items-center gap-2">
+          <RefreshCw className={"h-3.5 w-3.5 " + (isFetching ? "animate-spin" : "")} /> Refresh
+        </button>
+        <button onClick={() => sync.mutate()} disabled={sync.isPending} className="px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-xs text-white font-medium flex items-center gap-2">
+          <RefreshCw className={"h-3.5 w-3.5 " + (sync.isPending ? "animate-spin" : "")} /> Sync Plans
+        </button>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="p-4 rounded-xl bg-slate-950/50 border border-white/5">
+          <p className="text-[10px] uppercase tracking-widest text-slate-500">Status</p>
+          <p className={"text-lg font-bold mt-1 " + (data?.reachable ? "text-emerald-300" : "text-rose-300")}>{data?.reachable ? "Operational" : isFetching ? "Checking…" : "Unreachable"}</p>
+        </div>
+        <div className="p-4 rounded-xl bg-slate-950/50 border border-white/5">
+          <p className="text-[10px] uppercase tracking-widest text-slate-500">Provider balance</p>
+          <p className="text-lg font-bold text-white tabular-nums mt-1">{data ? fmtNaira(data.balance || 0) : "—"}</p>
+        </div>
+        <div className="p-4 rounded-xl bg-slate-950/50 border border-white/5">
+          <p className="text-[10px] uppercase tracking-widest text-slate-500">Latency</p>
+          <p className="text-lg font-bold text-white tabular-nums mt-1">{data ? `${data.latency_ms} ms` : "—"}</p>
+        </div>
+        <div className="p-4 rounded-xl bg-slate-950/50 border border-white/5">
+          <p className="text-[10px] uppercase tracking-widest text-slate-500">HTTP</p>
+          <p className="text-lg font-bold text-white tabular-nums mt-1">{data?.status || "—"}</p>
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
 
 function Status({ label, ok }: { label: string; ok: boolean }) {
   return (
