@@ -136,8 +136,16 @@ export default function AdminDataPlans() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={load} className="border-white/10"><RefreshCw className="h-4 w-4 mr-2" />Refresh</Button>
+          <Button variant="outline" className="border-emerald-500/40 text-emerald-300" onClick={async () => {
+            const t = toast.loading("Syncing SMEAPI plans…");
+            const { data, error } = await supabase.functions.invoke("smeapi", { body: { action: "sync-plans" } });
+            if (error) { toast.error(error.message || "Sync failed", { id: t }); return; }
+            toast.success(`Synced — ${data?.inserted || 0} new, ${data?.updated || 0} updated`, { id: t });
+            load();
+          }}><Database className="h-4 w-4 mr-2" />Sync from SMEAPI</Button>
           <Button onClick={() => setEditing({ ...empty })} className="bg-gradient-to-r from-violet-600 to-indigo-600"><Plus className="h-4 w-4 mr-2" />New plan</Button>
         </div>
+
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
