@@ -26,7 +26,7 @@ export function GlassCard({ className, children }: { className?: string; childre
   );
 }
 
-export function Stat({ label, value, icon: Icon, accent = "violet", hint }: { label: string; value: React.ReactNode; icon: any; accent?: "violet" | "emerald" | "amber" | "rose" | "cyan"; hint?: string }) {
+export function Stat({ label, value, icon: Icon, accent = "violet", hint, to }: { label: string; value: React.ReactNode; icon: any; accent?: "violet" | "emerald" | "amber" | "rose" | "cyan"; hint?: string; to?: string }) {
   const tint = {
     violet: "from-violet-500/20 to-indigo-500/5 border-violet-500/30 text-violet-300",
     emerald: "from-emerald-500/20 to-teal-500/5 border-emerald-500/30 text-emerald-300",
@@ -34,8 +34,8 @@ export function Stat({ label, value, icon: Icon, accent = "violet", hint }: { la
     rose: "from-rose-500/20 to-pink-500/5 border-rose-500/30 text-rose-300",
     cyan: "from-cyan-500/20 to-sky-500/5 border-cyan-500/30 text-cyan-300",
   }[accent];
-  return (
-    <GlassCard className="p-5">
+  const inner = (
+    <GlassCard className={cn("p-5 h-full", to && "transition hover:border-white/20 hover:bg-slate-900/80 cursor-pointer")}>
       <div className={cn("h-10 w-10 rounded-xl bg-gradient-to-br border grid place-items-center mb-3", tint)}>
         <Icon className="h-5 w-5" />
       </div>
@@ -44,7 +44,10 @@ export function Stat({ label, value, icon: Icon, accent = "violet", hint }: { la
       {hint && <p className="text-[10px] text-slate-500 mt-1">{hint}</p>}
     </GlassCard>
   );
+  if (to) return <a href={to} className="block">{inner}</a>;
+  return inner;
 }
+
 
 export function LoadingBlock({ label = "Loading…" }: { label?: string }) {
   return (
