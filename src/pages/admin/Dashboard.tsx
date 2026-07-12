@@ -66,19 +66,23 @@ export default function AdminDashboard() {
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <Stat label="Total users" value={data!.totalUsers} icon={Users} accent="violet" />
-            <Stat label="New (7 days)" value={data!.newUsers} icon={UserPlus} accent="cyan" />
-            <Stat label="Active now" value={data!.active} icon={Activity} accent="emerald" hint="last 30 min" />
-            <Stat label="Total transactions" value={data!.totalTx} icon={Receipt} accent="violet" />
-            <Stat label="Revenue" value={fmtNaira(data!.revenue)} icon={Wallet} accent="emerald" />
-            <Stat label="Profit" value={fmtNaira(data!.profit)} icon={TrendingUp} accent="emerald" hint="selling − cost" />
-            <Stat label="Service charges" value={fmtNaira(data!.charges)} icon={Coins} accent="amber" hint="collected fees" />
-            <Stat label="Pending deposits" value={data!.pending} icon={Hourglass} accent="amber" />
-            <Stat label="Total deposits" value={fmtNaira(data!.deposits)} icon={Wallet} accent="cyan" />
-            <Stat label="Withdrawals" value={fmtNaira(data!.withdrawn)} icon={ArrowUpFromLine} accent="rose" />
-            <Stat label="Failed tx" value={data!.byStatus.failed || 0} icon={XCircle} accent="rose" />
-            <Stat label="Refunded tx" value={data!.byStatus.refunded || 0} icon={RotateCcw} accent="amber" />
+            <Stat to="/admin/users" label="Total users" value={data!.totalUsers} icon={Users} accent="violet" />
+            <Stat to="/admin/users" label="New (7 days)" value={data!.newUsers} icon={UserPlus} accent="cyan" />
+            <Stat to="/admin/activity" label="Active now" value={data!.active} icon={Activity} accent="emerald" hint="last 30 min" />
+            <Stat to="/admin/transactions" label="Total transactions" value={data!.totalTx} icon={Receipt} accent="violet" />
+            <Stat to="/admin/transactions" label="Revenue" value={fmtNaira(data!.revenue)} icon={Wallet} accent="emerald" />
+            <Stat to="/admin/pricing-charges" label="Profit" value={fmtNaira(data!.profit)} icon={TrendingUp} accent="emerald" hint="selling − cost" />
+            <Stat to="/admin/pricing-charges" label="Service charges" value={fmtNaira(data!.charges)} icon={Coins} accent="amber" hint="collected fees" />
+            <Stat to="/admin/deposits" label="Pending deposits" value={data!.pending} icon={Hourglass} accent="amber" />
+            <Stat to="/admin/deposits" label="Total deposits" value={fmtNaira(data!.deposits)} icon={Wallet} accent="cyan" />
+            <Stat to="/admin/withdrawals" label="Withdrawals" value={fmtNaira(data!.withdrawn)} icon={ArrowUpFromLine} accent="rose" />
+            <Stat to="/admin/transactions" label="Failed tx" value={data!.byStatus.failed || 0} icon={XCircle} accent="rose" />
+            <Stat to="/admin/transactions" label="Refunded tx" value={data!.byStatus.refunded || 0} icon={RotateCcw} accent="amber" />
           </div>
+
+          <VtuStatusPanel />
+
+
 
           <div className="grid lg:grid-cols-2 gap-4 mb-6">
             <GlassCard className="p-5">
