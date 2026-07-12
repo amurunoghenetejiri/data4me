@@ -470,8 +470,9 @@ async function buyAirtime(
       mobile_number: phone.trim(),
       Ported_number: true,
       airtime_type: 'VTU',
-      pin: '',
+      pin: config.smeapiPin || '',
     };
+
 
     logger.log('SMEAPI_PAYLOAD_BUILT', smeapiPayload);
 
