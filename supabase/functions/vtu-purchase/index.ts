@@ -767,8 +767,9 @@ async function buyData(
       mobile_number: phone.trim(),
       plan: plan.api_code || plan.plan_id,
       Ported_number: true,
-      pin: '',
+      pin: config.smeapiPin || '',
     };
+
 
     logger.log('SMEAPI_PAYLOAD_BUILT', smeapiPayload);
 
