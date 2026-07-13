@@ -41,7 +41,7 @@ export default function Messages() {
 
   async function load(myId: string, admin: string | null) {
     const { data } = await supabase.from("direct_messages" as any).select("*").order("created_at", { ascending: true }).limit(500);
-    const rows = ((data || []) as Message[]).filter((m) => m.sender_id === myId || m.recipient_id === myId);
+    const rows = ((data || []) as unknown as Message[]).filter((m) => m.sender_id === myId || m.recipient_id === myId);
     setMessages(rows);
     // mark unread from admins as read
     const unread = rows.filter((m) => m.recipient_id === myId && !m.read_at).map((m) => m.id);

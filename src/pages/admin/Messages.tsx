@@ -48,7 +48,7 @@ export default function AdminMessages() {
 
   async function load(myId: string) {
     const { data } = await supabase.from("direct_messages" as any).select("*").order("created_at", { ascending: true }).limit(1000);
-    const rows = (data || []) as Message[];
+    const rows = (data || []) as unknown as Message[];
     setMessages(rows);
     const ids = new Set<string>();
     rows.forEach((m) => { if (m.sender_id !== myId) ids.add(m.sender_id); if (m.recipient_id !== myId) ids.add(m.recipient_id); });
