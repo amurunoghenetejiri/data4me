@@ -211,7 +211,7 @@ async function smeapiRequest(
   try {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.smeapiKey}`,
+      'Authorization': `Token ${config.smeapiKey}`,
       'x-api-key': config.smeapiKey,
     };
 
