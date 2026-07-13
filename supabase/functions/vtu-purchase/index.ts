@@ -185,8 +185,25 @@ function validateDataPlanId(planId: string): { valid: boolean; error?: string } 
 }
 
 // ============================================
+// SMEAPI NETWORK ID MAP (SMEAPI expects numeric IDs)
+// ============================================
+
+const NETWORK_ID_MAP: Record<string, number> = {
+  MTN: 1,
+  GLO: 2,
+  '9MOBILE': 3,
+  AIRTEL: 4,
+};
+
+function toNetworkId(network: string): number | null {
+  const key = String(network || '').toUpperCase().trim();
+  return NETWORK_ID_MAP[key] ?? null;
+}
+
+// ============================================
 // SMEAPI REQUEST
 // ============================================
+
 
 async function smeapiRequest(
   config: Config,
