@@ -10,8 +10,23 @@ const USERNAME = Deno.env.get('SMEAPI_USERNAME') || '';
 const API_KEY = Deno.env.get('SMEAPI_API_KEY') || '';
 const PIN = Deno.env.get('SMEAPI_PIN') || '';
 
+const NETWORK_ID_MAP: Record<string, number> = { MTN: 1, GLO: 2, '9MOBILE': 3, AIRTEL: 4 };
+function toNetworkId(n: any): number | null {
+  if (typeof n === 'number') return n;
+  const k = String(n || '').toUpperCase().trim();
+  return NETWORK_ID_MAP[k] ?? null;
+}
+
 function authHeaders() {
   return {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    Authorization: `Token ${API_KEY}`,
+    'x-api-key': API_KEY,
+    'x-username': USERNAME,
+  } as Record<string, string>;
+}
+
     'Content-Type': 'application/json',
     Authorization: `Bearer ${API_KEY}`,
     'x-api-key': API_KEY,
