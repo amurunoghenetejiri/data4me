@@ -480,15 +480,22 @@ async function buyAirtime(
       return { success: false, error: 'Failed to process transaction' };
     }
 
-    // STEP 6: Build SMEAPI request
+    // STEP 6: Build SMEAPI request (SMEAPI expects numeric network ID)
+    const networkId = toNetworkId(network);
+    if (!networkId) {
+      // refund and abort
+      try { await svc.rpc('refund_transaction', { _tx_id: txId, _reason: 'Unsupported network' }); } catch {}
+      return { success: false, error: `Unsupported network: ${network}`, data: { txId } };
+    }
     const smeapiPayload = {
-      network: network.toUpperCase(),
+      network: networkId,
       amount: productAmount,
       mobile_number: phone.trim(),
       Ported_number: true,
       airtime_type: 'VTU',
       pin: config.smeapiPin || '',
     };
+
 
 
     logger.log('SMEAPI_PAYLOAD_BUILT', smeapiPayload);
