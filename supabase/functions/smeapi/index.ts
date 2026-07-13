@@ -140,10 +140,10 @@ Deno.serve(async (req) => {
         return json({ success: true, inserted, updated, skipped, groups: Object.keys(groups) });
       }
       case 'buy-data':
-        result = await call('/data', {
+        result = await call('/data/', {
           method: 'POST',
           body: JSON.stringify({
-            network: payload.network,
+            network: toNetworkId(payload.network) ?? payload.network,
             mobile_number: payload.phone,
             plan: payload.plan_id,
             Ported_number: true,
@@ -152,10 +152,10 @@ Deno.serve(async (req) => {
         });
         break;
       case 'buy-airtime':
-        result = await call('/airtime', {
+        result = await call('/airtime/', {
           method: 'POST',
           body: JSON.stringify({
-            network: payload.network,
+            network: toNetworkId(payload.network) ?? payload.network,
             amount: payload.amount,
             mobile_number: payload.phone,
             Ported_number: true,
@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
           }),
         });
         break;
+
       case 'cabletv-verify':
         result = await call('/cabletv/verify', {
           method: 'POST',
