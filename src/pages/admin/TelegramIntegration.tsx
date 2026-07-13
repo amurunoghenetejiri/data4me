@@ -18,6 +18,22 @@ const STATUS_LABEL: Record<string, string> = {
   offline: "Offline",
 };
 
+// supabase.functions.invoke marks any non-2xx as `error`, hiding the JSON body.
+// Read the real payload so admins see the actual Telegram error.
+async function invokeFn(body: any, method?: "GET" | "POST") {
+  const opts: any = {};
+  if (body !== undefined) opts.body = body;
+  if (method) opts.method = method;
+  const { data, error } = await supabase.functions.invoke("telegram-notify", opts);
+  if (error && (error as any).context && typeof (error as any).context.text === "function") {
+    try {
+      const txt = await (error as any).context.text();
+      try { return { data: JSON.parse(txt), error: null }; } catch { return { data: { error: txt }, error: null }; }
+    } catch { /* fall through */ }
+  }
+  return { data, error };
+}
+
 export default function AdminTelegramIntegration() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
