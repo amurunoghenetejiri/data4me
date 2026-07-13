@@ -919,14 +919,15 @@ async function buyData(
         logger.error('REFUND_FAILED', refundErr, { txId });
       }
 
+      const failMsg = smeapiResp.body?.msg || smeapiResp.body?.message || smeapiResp.body?.error || 'Data purchase failed';
+      await tgNotify('Data Failed', '❌', {
+        'Event Type': 'Data Failed', 'User ID': userId, 'Transaction ID': txId,
+        Network: plan.network, 'Data Size': plan.data_size, Phone: phone, Amount: `₦${productAmount}`, Status: 'failed', Reason: failMsg,
+      });
       return {
         success: false,
-        error:
-          smeapiResp.body?.msg ||
-            smeapiResp.body?.message ||
-          smeapiResp.body?.error ||
-          'Data purchase failed',
-        data: { txId },
+        error: failMsg,
+        data: { txId, refunded: true },
       };
     }
 
