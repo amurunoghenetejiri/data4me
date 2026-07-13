@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Users, Receipt, ArrowDownToLine, ArrowUpFromLine, BadgeCheck,
   Package, BarChart3, Bell, Settings, ShieldCheck, FileClock, Lock, LifeBuoy,
-  Database, LogOut, Menu, X, Sparkles, Wifi, CreditCard, Activity, Inbox, Sliders
+  Database, LogOut, Menu, X, Sparkles, Wifi, CreditCard, Activity, Inbox, Sliders, ArrowLeft
 } from "lucide-react";
+import logoAsset from "@/assets/data4me-logo.png.asset.json";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -82,13 +83,19 @@ export default function AdminLayout() {
   const SidebarBody = (
     <div className="flex flex-col h-full">
       <div className="px-5 py-5 border-b border-white/5 flex items-center gap-2">
-        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 grid place-items-center shadow-[0_0_30px_-5px] shadow-violet-500/60">
-          <Sparkles className="h-5 w-5 text-white" />
-        </div>
+        <img src={logoAsset.url} alt="DATA4ME" className="h-9 w-auto object-contain" />
         <div>
-          <p className="text-white font-bold leading-tight">Data4Me</p>
+          <p className="text-white font-bold leading-tight">DATA4ME</p>
           <p className="text-[10px] uppercase tracking-widest text-violet-300 font-semibold">Admin Console</p>
         </div>
+      </div>
+      <div className="px-3 pt-3">
+        <button
+          onClick={() => { setMobileOpen(false); navigate("/dashboard"); }}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-emerald-300 hover:bg-emerald-500/10 border border-emerald-500/20 transition"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to User Dashboard
+        </button>
       </div>
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         {nav.map((n) => (
