@@ -572,7 +572,7 @@ async function buyAirtime(
     if (!smeapiSuccess) {
       logger.log('SMEAPI_FAILED', {
         txId,
-        reason: smeapiResp.body?.message || smeapiResp.body?.error,
+        reason: smeapiResp.body?.msg || smeapiResp.body?.message || smeapiResp.body?.error,
       });
 
       // REFUND on SMEAPI failure
@@ -580,6 +580,7 @@ async function buyAirtime(
         await svc.rpc('refund_transaction', {
           _tx_id: txId,
           _reason:
+            smeapiResp.body?.msg ||
             smeapiResp.body?.message ||
             smeapiResp.body?.error ||
             'SMEAPI purchase failed',
@@ -592,7 +593,8 @@ async function buyAirtime(
       return {
         success: false,
         error:
-          smeapiResp.body?.message ||
+          smeapiResp.body?.msg ||
+            smeapiResp.body?.message ||
           smeapiResp.body?.error ||
           'Airtime purchase failed',
         data: { txId },
@@ -874,13 +876,14 @@ async function buyData(
     if (!smeapiSuccess) {
       logger.log('SMEAPI_FAILED', {
         txId,
-        reason: smeapiResp.body?.message || smeapiResp.body?.error,
+        reason: smeapiResp.body?.msg || smeapiResp.body?.message || smeapiResp.body?.error,
       });
 
       try {
         await svc.rpc('refund_transaction', {
           _tx_id: txId,
           _reason:
+            smeapiResp.body?.msg ||
             smeapiResp.body?.message ||
             smeapiResp.body?.error ||
             'SMEAPI purchase failed',
@@ -893,7 +896,8 @@ async function buyData(
       return {
         success: false,
         error:
-          smeapiResp.body?.message ||
+          smeapiResp.body?.msg ||
+            smeapiResp.body?.message ||
           smeapiResp.body?.error ||
           'Data purchase failed',
         data: { txId },
