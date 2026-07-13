@@ -57,6 +57,19 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (credited) {
+      const lines = [
+        '💰 <b>DATA4ME • Wallet Funded (Paystack)</b>',
+        `<b>Event Type:</b> Wallet Credit`,
+        `<b>Amount:</b> ₦${amount}`,
+        `<b>Reference:</b> ${reference}`,
+        email ? `<b>Email:</b> ${email}` : '',
+        `<b>Status:</b> success`,
+        `<b>Time:</b> ${new Date().toISOString()}`,
+      ].filter(Boolean).join('\n')
+      notifyTelegram(lines)
+    }
+
     return json({
       success, reference, amount, email, credited,
       raw_status: data?.data?.status ?? 'unknown',
