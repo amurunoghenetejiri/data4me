@@ -10,14 +10,24 @@ const USERNAME = Deno.env.get('SMEAPI_USERNAME') || '';
 const API_KEY = Deno.env.get('SMEAPI_API_KEY') || '';
 const PIN = Deno.env.get('SMEAPI_PIN') || '';
 
+const NETWORK_ID_MAP: Record<string, number> = { MTN: 1, GLO: 2, '9MOBILE': 3, AIRTEL: 4 };
+function toNetworkId(n: any): number | null {
+  if (typeof n === 'number') return n;
+  const k = String(n || '').toUpperCase().trim();
+  return NETWORK_ID_MAP[k] ?? null;
+}
+
 function authHeaders() {
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${API_KEY}`,
+    Accept: 'application/json',
+    Authorization: `Token ${API_KEY}`,
     'x-api-key': API_KEY,
     'x-username': USERNAME,
   } as Record<string, string>;
 }
+
+
 
 async function call(path: string, init?: RequestInit) {
   const started = Date.now();
@@ -130,10 +140,10 @@ Deno.serve(async (req) => {
         return json({ success: true, inserted, updated, skipped, groups: Object.keys(groups) });
       }
       case 'buy-data':
-        result = await call('/data', {
+        result = await call('/data/', {
           method: 'POST',
           body: JSON.stringify({
-            network: payload.network,
+            network: toNetworkId(payload.network) ?? payload.network,
             mobile_number: payload.phone,
             plan: payload.plan_id,
             Ported_number: true,
@@ -142,10 +152,10 @@ Deno.serve(async (req) => {
         });
         break;
       case 'buy-airtime':
-        result = await call('/airtime', {
+        result = await call('/airtime/', {
           method: 'POST',
           body: JSON.stringify({
-            network: payload.network,
+            network: toNetworkId(payload.network) ?? payload.network,
             amount: payload.amount,
             mobile_number: payload.phone,
             Ported_number: true,
@@ -154,6 +164,7 @@ Deno.serve(async (req) => {
           }),
         });
         break;
+
       case 'cabletv-verify':
         result = await call('/cabletv/verify', {
           method: 'POST',

@@ -185,8 +185,25 @@ function validateDataPlanId(planId: string): { valid: boolean; error?: string } 
 }
 
 // ============================================
+// SMEAPI NETWORK ID MAP (SMEAPI expects numeric IDs)
+// ============================================
+
+const NETWORK_ID_MAP: Record<string, number> = {
+  MTN: 1,
+  GLO: 2,
+  '9MOBILE': 3,
+  AIRTEL: 4,
+};
+
+function toNetworkId(network: string): number | null {
+  const key = String(network || '').toUpperCase().trim();
+  return NETWORK_ID_MAP[key] ?? null;
+}
+
+// ============================================
 // SMEAPI REQUEST
 // ============================================
+
 
 async function smeapiRequest(
   config: Config,
@@ -463,15 +480,22 @@ async function buyAirtime(
       return { success: false, error: 'Failed to process transaction' };
     }
 
-    // STEP 6: Build SMEAPI request
+    // STEP 6: Build SMEAPI request (SMEAPI expects numeric network ID)
+    const networkId = toNetworkId(network);
+    if (!networkId) {
+      // refund and abort
+      try { await svc.rpc('refund_transaction', { _tx_id: txId, _reason: 'Unsupported network' }); } catch {}
+      return { success: false, error: `Unsupported network: ${network}`, data: { txId } };
+    }
     const smeapiPayload = {
-      network: network.toUpperCase(),
+      network: networkId,
       amount: productAmount,
       mobile_number: phone.trim(),
       Ported_number: true,
       airtime_type: 'VTU',
       pin: config.smeapiPin || '',
     };
+
 
 
     logger.log('SMEAPI_PAYLOAD_BUILT', smeapiPayload);
@@ -548,7 +572,7 @@ async function buyAirtime(
     if (!smeapiSuccess) {
       logger.log('SMEAPI_FAILED', {
         txId,
-        reason: smeapiResp.body?.message || smeapiResp.body?.error,
+        reason: smeapiResp.body?.msg || smeapiResp.body?.message || smeapiResp.body?.error,
       });
 
       // REFUND on SMEAPI failure
@@ -556,6 +580,7 @@ async function buyAirtime(
         await svc.rpc('refund_transaction', {
           _tx_id: txId,
           _reason:
+            smeapiResp.body?.msg ||
             smeapiResp.body?.message ||
             smeapiResp.body?.error ||
             'SMEAPI purchase failed',
@@ -568,7 +593,8 @@ async function buyAirtime(
       return {
         success: false,
         error:
-          smeapiResp.body?.message ||
+          smeapiResp.body?.msg ||
+            smeapiResp.body?.message ||
           smeapiResp.body?.error ||
           'Airtime purchase failed',
         data: { txId },
@@ -761,14 +787,20 @@ async function buyData(
       return { success: false, error: 'Failed to process transaction' };
     }
 
-    // STEP 6: Build SMEAPI request
+    // STEP 6: Build SMEAPI request (numeric network ID required)
+    const dataNetworkId = toNetworkId(plan.network);
+    if (!dataNetworkId) {
+      try { await svc.rpc('refund_transaction', { _tx_id: txId, _reason: 'Unsupported network on plan' }); } catch {}
+      return { success: false, error: `Unsupported network: ${plan.network}`, data: { txId } };
+    }
     const smeapiPayload = {
-      network: plan.network.toUpperCase(),
+      network: dataNetworkId,
       mobile_number: phone.trim(),
       plan: plan.api_code || plan.plan_id,
       Ported_number: true,
       pin: config.smeapiPin || '',
     };
+
 
 
     logger.log('SMEAPI_PAYLOAD_BUILT', smeapiPayload);
@@ -844,13 +876,14 @@ async function buyData(
     if (!smeapiSuccess) {
       logger.log('SMEAPI_FAILED', {
         txId,
-        reason: smeapiResp.body?.message || smeapiResp.body?.error,
+        reason: smeapiResp.body?.msg || smeapiResp.body?.message || smeapiResp.body?.error,
       });
 
       try {
         await svc.rpc('refund_transaction', {
           _tx_id: txId,
           _reason:
+            smeapiResp.body?.msg ||
             smeapiResp.body?.message ||
             smeapiResp.body?.error ||
             'SMEAPI purchase failed',
@@ -863,7 +896,8 @@ async function buyData(
       return {
         success: false,
         error:
-          smeapiResp.body?.message ||
+          smeapiResp.body?.msg ||
+            smeapiResp.body?.message ||
           smeapiResp.body?.error ||
           'Data purchase failed',
         data: { txId },
