@@ -950,6 +950,12 @@ async function buyData(
       phone,
     });
 
+    await tgNotify('Data Purchase', '📶', {
+      'Event Type': 'Data Success', 'User ID': userId, 'Transaction ID': txId,
+      Network: plan.network, 'Data Size': plan.data_size, Phone: phone,
+      Amount: `₦${productAmount}`, Charge: `₦${chargeAmount}`, Total: `₦${totalAmount}`, Status: 'success',
+    });
+
     return {
       success: true,
       data: {
