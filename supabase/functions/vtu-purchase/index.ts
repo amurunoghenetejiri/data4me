@@ -609,13 +609,14 @@ async function buyAirtime(
         logger.error('REFUND_FAILED', refundErr, { txId });
       }
 
+      const failMsg = smeapiResp.body?.msg || smeapiResp.body?.message || smeapiResp.body?.error || 'Airtime purchase failed';
+      await tgNotify('Airtime Failed', '❌', {
+        'Event Type': 'Airtime Failed', 'User ID': userId, 'Transaction ID': txId,
+        Network: network.toUpperCase(), Phone: phone, Amount: `₦${productAmount}`, Status: 'failed', Reason: failMsg,
+      });
       return {
         success: false,
-        error:
-          smeapiResp.body?.msg ||
-            smeapiResp.body?.message ||
-          smeapiResp.body?.error ||
-          'Airtime purchase failed',
+        error: failMsg,
         data: { txId, refunded: true, provider_status: smeapiResp.status },
       };
     }
