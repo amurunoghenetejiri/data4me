@@ -86,21 +86,40 @@ Deno.serve(async (req) => {
     if (!isAdmin) return json({ error: 'Forbidden' }, 403)
 
     if (action === 'test') {
-      const r = await testTelegramConnection(body.botToken, body.chatId)
+      const r = await testTelegramConnection(
+        typeof body.botToken === 'string' ? body.botToken.trim() : undefined,
+        typeof body.chatId === 'string' ? body.chatId.trim() : undefined,
+      )
+      return json(r)
+    }
+
+    if (action === 'verify_chat') {
+      const r = await verifyChatIdViaUpdates(
+        typeof body.botToken === 'string' ? body.botToken.trim() : undefined,
+        typeof body.chatId === 'string' ? body.chatId.trim() : undefined,
+      )
       return json(r)
     }
 
     if (action === 'send_test') {
+      // Always read fresh from DB — never cache.
       const cfg = await getTelegramConfig()
-      if (!cfg.botToken || !cfg.chatIds.length) return json({ ok: false, error: 'Configuration incomplete' }, 400)
+      if (!cfg.botToken) return json({ ok: false, error: 'Bot token not configured' }, 400)
+      if (!cfg.chatIds.length) return json({ ok: false, error: 'Chat ID not configured' }, 400)
       const message = formatTelegramMessage('Test Message', '✅', {
         'Event Type': 'Integration Test',
         Status: 'OK',
+        'Chat ID': cfg.chatIds[0],
         'Sent By': 'Super Admin',
       })
       const r = await sendTelegramMessage(message)
+      if (!r.ok && r.error) {
+        // Surface real Telegram error to the admin UI.
+        return json({ ok: false, sent: r.sent, error: r.error, details: r.details }, 400)
+      }
       return json(r)
     }
+
 
     if (action === 'save') {
       const s = body.settings || {}
