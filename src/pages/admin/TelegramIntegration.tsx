@@ -72,18 +72,16 @@ export default function AdminTelegramIntegration() {
   async function save() {
     setSaving(true);
     const payload: any = {
-      chatId: form.chatId,
-      extraChatIds: form.extraChatIds,
+      chatId: form.chatId.trim(),
+      extraChatIds: form.extraChatIds.trim(),
       enabled: form.enabled,
     };
     if (form.botToken.trim()) payload.botToken = form.botToken.trim();
-    const { data, error } = await supabase.functions.invoke("telegram-notify", {
-      body: { action: "save", settings: payload },
-    });
+    const { data, error } = await invokeFn({ action: "save", settings: payload });
     setSaving(false);
     if (error || data?.error) return toast.error(data?.error || error?.message || "Save failed");
     toast.success("Telegram configuration saved");
-    setForm((f) => ({ ...f, botToken: "" }));
+    setForm((f) => ({ ...f, botToken: "", chatId: payload.chatId, extraChatIds: payload.extraChatIds }));
     setMeta((m) => ({ botTokenSet: true, masked: payload.botToken ? "••••" + payload.botToken.slice(-4) : m.masked }));
   }
 
@@ -93,7 +91,7 @@ export default function AdminTelegramIntegration() {
     const body: any = { action: "test" };
     if (form.botToken.trim()) body.botToken = form.botToken.trim();
     if (form.chatId.trim()) body.chatId = form.chatId.trim();
-    const { data, error } = await supabase.functions.invoke("telegram-notify", { body });
+    const { data, error } = await invokeFn(body);
     setTesting(false);
     if (error) {
       setStatus({ kind: "error", label: "Network Error", detail: error.message });
@@ -106,23 +104,44 @@ export default function AdminTelegramIntegration() {
       setStatus({
         kind: "error",
         label: STATUS_LABEL[data?.status] || "Unknown Error",
-        detail: data?.error,
+        detail: data?.error || data?.telegramError,
       });
+    }
+  }
+
+  async function verifyChatId() {
+    setVerifying(true);
+    const body: any = { action: "verify_chat" };
+    if (form.botToken.trim()) body.botToken = form.botToken.trim();
+    if (form.chatId.trim()) body.chatId = form.chatId.trim();
+    const { data, error } = await invokeFn(body);
+    setVerifying(false);
+    if (error) return toast.error(error.message || "Verification failed");
+    if (data?.status === "verified") {
+      setStatus({ kind: "connected", chat: { id: data.chatId, title: "Verified via getUpdates", type: "verified" } });
+      toast.success(`Chat ID ${data.chatId} verified — user has started the bot.`);
+    } else if (data?.status === "not_started") {
+      toast.error("This Chat ID has never started the bot. Open Telegram, press Start, then Verify again.");
+      setStatus({ kind: "error", label: "Chat has not started bot", detail: data.error });
+    } else {
+      toast.error(data?.error || "Verification failed");
+      setStatus({ kind: "error", label: STATUS_LABEL[data?.status] || "Verification Error", detail: data?.error });
     }
   }
 
   async function sendTestMessage() {
     setSending(true);
-    const { data, error } = await supabase.functions.invoke("telegram-notify", {
-      body: { action: "send_test" },
-    });
+    const { data, error } = await invokeFn({ action: "send_test" });
     setSending(false);
     if (error || data?.error || !data?.ok) {
-      toast.error(data?.error || error?.message || "Failed to send message");
+      const msg = data?.error || error?.message || "Failed to send message";
+      toast.error(msg);
+      setStatus({ kind: "error", label: "Send Failed", detail: msg });
       return;
     }
     toast.success(`Test message sent to ${data.sent} chat(s)`);
   }
+
 
   return (
     <div>
