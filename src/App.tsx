@@ -48,6 +48,7 @@ import AdminBroadcast from "./pages/admin/Notifications";
 import { KycPage, ReportsPage, AdminAccountsPage, SecurityPage, SupportPage, DatabasePage } from "./pages/admin/Misc";
 import AdminSmeapiStatus from "./pages/admin/SmeapiStatus";
 import AdminMessages from "./pages/admin/Messages";
+import AdminTelegramIntegration from "./pages/admin/TelegramIntegration";
 import Messages from "./pages/Messages";
 
 const queryClient = new QueryClient();
@@ -84,6 +85,7 @@ const App = () => (
               <Route path="database" element={<DatabasePage />} />
               <Route path="smeapi-status" element={<AdminSmeapiStatus />} />
               <Route path="messages" element={<AdminMessages />} />
+              <Route path="telegram" element={<AdminTelegramIntegration />} />
             </Route>
             <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
