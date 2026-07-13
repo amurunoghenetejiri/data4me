@@ -4,6 +4,11 @@
 
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2.45.0';
+import { notifyTelegram } from '../_shared/telegram.ts';
+
+async function tgNotify(title: string, emoji: string, rows: Record<string, any>) {
+  try { notifyTelegram(`${emoji} <b>DATA4ME • ${title}</b>\n` + Object.entries(rows).filter(([,v]) => v!=null && v!=='').map(([k,v]) => `<b>${k}:</b> ${v}`).join('\n') + `\n<b>Time:</b> ${new Date().toISOString()}`); } catch {}
+}
 
 // ============================================
 // ENVIRONMENT CONFIGURATION
