@@ -85,7 +85,7 @@ export default function AdminLayout() {
   const SidebarBody = (
     <div className="flex flex-col h-full">
       <div className="px-5 py-5 border-b border-white/5 flex items-center gap-2">
-        <img src={logoAsset.url} alt="DATA4ME" className="h-9 w-auto object-contain" />
+        <BrandMark size={44} />
         <div>
           <p className="text-white font-bold leading-tight">DATA4ME</p>
           <p className="text-[10px] uppercase tracking-widest text-violet-300 font-semibold">Admin Console</p>
@@ -153,7 +153,6 @@ export default function AdminLayout() {
         <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-14 border-b border-white/5 bg-slate-900/80 backdrop-blur-xl">
           <button onClick={() => setMobileOpen(true)} className="h-9 w-9 grid place-items-center rounded-lg bg-white/5"><Menu className="h-5 w-5" /></button>
           <div className="flex items-center gap-1">
-            <img src={new URL("@/assets/data4me-logo.png.asset.json", import.meta.url).toString()} alt="" className="hidden" />
             <BrandMark size={36} />
             <p className="font-bold text-white text-sm">Admin</p>
           </div>
