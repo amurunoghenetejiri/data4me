@@ -120,12 +120,14 @@ Deno.serve(async (req) => {
         const { error } = await svc.from('secure_secrets').upsert(rows)
         if (error) return json({ error: error.message }, 500)
       }
-      await svc.rpc('log_admin_action', {
-        _action: 'update_telegram_config',
-        _target_type: 'secure_secrets',
-        _target_id: 'telegram',
-        _details: { fields: rows.map((r) => r.name) },
-      }).catch(() => {})
+      try {
+        await svc.rpc('log_admin_action', {
+          _action: 'update_telegram_config',
+          _target_type: 'secure_secrets',
+          _target_id: 'telegram',
+          _details: { fields: rows.map((r) => r.name) },
+        })
+      } catch { /* ignore */ }
       return json({ ok: true })
     }
 
