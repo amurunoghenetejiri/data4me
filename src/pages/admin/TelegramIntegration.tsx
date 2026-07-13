@@ -51,9 +51,11 @@ export default function AdminTelegramIntegration() {
     masked: "",
   });
 
+  const [verifying, setVerifying] = useState(false);
+
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase.functions.invoke("telegram-notify", { method: "GET" as any });
+      const { data, error } = await invokeFn(undefined, "GET");
       if (!error && data) {
         setForm((f) => ({
           ...f,
