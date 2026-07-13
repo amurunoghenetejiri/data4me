@@ -46,6 +46,9 @@ import AdminPricingCharges from "./pages/admin/PricingCharges";
 import AdminActivityCenter from "./pages/admin/ActivityCenter";
 import AdminBroadcast from "./pages/admin/Notifications";
 import { KycPage, ReportsPage, AdminAccountsPage, SecurityPage, SupportPage, DatabasePage } from "./pages/admin/Misc";
+import AdminSmeapiStatus from "./pages/admin/SmeapiStatus";
+import AdminMessages from "./pages/admin/Messages";
+import Messages from "./pages/Messages";
 
 const queryClient = new QueryClient();
 
@@ -79,9 +82,12 @@ const App = () => (
               <Route path="security" element={<SecurityPage />} />
               <Route path="support" element={<SupportPage />} />
               <Route path="database" element={<DatabasePage />} />
+              <Route path="smeapi-status" element={<AdminSmeapiStatus />} />
+              <Route path="messages" element={<AdminMessages />} />
             </Route>
             <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
+              <Route path="/messages" element={<Messages />} />
               <Route path="/buy-data" element={<BuyData />} />
               <Route path="/buy-airtime" element={<BuyAirtime />} />
               <Route path="/networks" element={<Networks />} />
