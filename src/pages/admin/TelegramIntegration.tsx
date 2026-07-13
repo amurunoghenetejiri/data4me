@@ -213,6 +213,13 @@ export default function AdminTelegramIntegration() {
                   Test Connection
                 </button>
                 <button
+                  onClick={verifyChatId}
+                  disabled={verifying}
+                  className="px-4 h-10 rounded-lg bg-white/10 border border-white/10 text-white text-sm font-semibold disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  Verify Chat ID
+                <button
                   onClick={sendTestMessage}
                   disabled={sending}
                   className="px-4 h-10 rounded-lg bg-emerald-600/90 text-white text-sm font-semibold disabled:opacity-50 inline-flex items-center gap-2"
