@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Send, Loader2, CheckCircle2, XCircle, MessageCircle, Save, Zap } from "lucide-react";
+import { Send, Loader2, CheckCircle2, XCircle, MessageCircle, Save, Zap, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { GlassCard, PageHead } from "./_shared";
 
