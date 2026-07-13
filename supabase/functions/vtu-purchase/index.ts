@@ -785,14 +785,20 @@ async function buyData(
       return { success: false, error: 'Failed to process transaction' };
     }
 
-    // STEP 6: Build SMEAPI request
+    // STEP 6: Build SMEAPI request (numeric network ID required)
+    const dataNetworkId = toNetworkId(plan.network);
+    if (!dataNetworkId) {
+      try { await svc.rpc('refund_transaction', { _tx_id: txId, _reason: 'Unsupported network on plan' }); } catch {}
+      return { success: false, error: `Unsupported network: ${plan.network}`, data: { txId } };
+    }
     const smeapiPayload = {
-      network: plan.network.toUpperCase(),
+      network: dataNetworkId,
       mobile_number: phone.trim(),
       plan: plan.api_code || plan.plan_id,
       Ported_number: true,
       pin: config.smeapiPin || '',
     };
+
 
 
     logger.log('SMEAPI_PAYLOAD_BUILT', smeapiPayload);
