@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Send, Loader2, CheckCircle2, XCircle, MessageCircle, Save, Zap } from "lucide-react";
+import { Send, Loader2, CheckCircle2, XCircle, MessageCircle, Save, Zap, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { GlassCard, PageHead } from "./_shared";
 
@@ -17,6 +17,22 @@ const STATUS_LABEL: Record<string, string> = {
   network_error: "Network Error",
   offline: "Offline",
 };
+
+// supabase.functions.invoke marks any non-2xx as `error`, hiding the JSON body.
+// Read the real payload so admins see the actual Telegram error.
+async function invokeFn(body: any, method?: "GET" | "POST") {
+  const opts: any = {};
+  if (body !== undefined) opts.body = body;
+  if (method) opts.method = method;
+  const { data, error } = await supabase.functions.invoke("telegram-notify", opts);
+  if (error && (error as any).context && typeof (error as any).context.text === "function") {
+    try {
+      const txt = await (error as any).context.text();
+      try { return { data: JSON.parse(txt), error: null }; } catch { return { data: { error: txt }, error: null }; }
+    } catch { /* fall through */ }
+  }
+  return { data, error };
+}
 
 export default function AdminTelegramIntegration() {
   const [loading, setLoading] = useState(true);
@@ -35,9 +51,11 @@ export default function AdminTelegramIntegration() {
     masked: "",
   });
 
+  const [verifying, setVerifying] = useState(false);
+
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase.functions.invoke("telegram-notify", { method: "GET" as any });
+      const { data, error } = await invokeFn(undefined, "GET");
       if (!error && data) {
         setForm((f) => ({
           ...f,
@@ -54,18 +72,16 @@ export default function AdminTelegramIntegration() {
   async function save() {
     setSaving(true);
     const payload: any = {
-      chatId: form.chatId,
-      extraChatIds: form.extraChatIds,
+      chatId: form.chatId.trim(),
+      extraChatIds: form.extraChatIds.trim(),
       enabled: form.enabled,
     };
     if (form.botToken.trim()) payload.botToken = form.botToken.trim();
-    const { data, error } = await supabase.functions.invoke("telegram-notify", {
-      body: { action: "save", settings: payload },
-    });
+    const { data, error } = await invokeFn({ action: "save", settings: payload });
     setSaving(false);
     if (error || data?.error) return toast.error(data?.error || error?.message || "Save failed");
     toast.success("Telegram configuration saved");
-    setForm((f) => ({ ...f, botToken: "" }));
+    setForm((f) => ({ ...f, botToken: "", chatId: payload.chatId, extraChatIds: payload.extraChatIds }));
     setMeta((m) => ({ botTokenSet: true, masked: payload.botToken ? "••••" + payload.botToken.slice(-4) : m.masked }));
   }
 
@@ -75,7 +91,7 @@ export default function AdminTelegramIntegration() {
     const body: any = { action: "test" };
     if (form.botToken.trim()) body.botToken = form.botToken.trim();
     if (form.chatId.trim()) body.chatId = form.chatId.trim();
-    const { data, error } = await supabase.functions.invoke("telegram-notify", { body });
+    const { data, error } = await invokeFn(body);
     setTesting(false);
     if (error) {
       setStatus({ kind: "error", label: "Network Error", detail: error.message });
@@ -88,23 +104,44 @@ export default function AdminTelegramIntegration() {
       setStatus({
         kind: "error",
         label: STATUS_LABEL[data?.status] || "Unknown Error",
-        detail: data?.error,
+        detail: data?.error || data?.telegramError,
       });
+    }
+  }
+
+  async function verifyChatId() {
+    setVerifying(true);
+    const body: any = { action: "verify_chat" };
+    if (form.botToken.trim()) body.botToken = form.botToken.trim();
+    if (form.chatId.trim()) body.chatId = form.chatId.trim();
+    const { data, error } = await invokeFn(body);
+    setVerifying(false);
+    if (error) return toast.error(error.message || "Verification failed");
+    if (data?.status === "verified") {
+      setStatus({ kind: "connected", chat: { id: data.chatId, title: "Verified via getUpdates", type: "verified" } });
+      toast.success(`Chat ID ${data.chatId} verified — user has started the bot.`);
+    } else if (data?.status === "not_started") {
+      toast.error("This Chat ID has never started the bot. Open Telegram, press Start, then Verify again.");
+      setStatus({ kind: "error", label: "Chat has not started bot", detail: data.error });
+    } else {
+      toast.error(data?.error || "Verification failed");
+      setStatus({ kind: "error", label: STATUS_LABEL[data?.status] || "Verification Error", detail: data?.error });
     }
   }
 
   async function sendTestMessage() {
     setSending(true);
-    const { data, error } = await supabase.functions.invoke("telegram-notify", {
-      body: { action: "send_test" },
-    });
+    const { data, error } = await invokeFn({ action: "send_test" });
     setSending(false);
     if (error || data?.error || !data?.ok) {
-      toast.error(data?.error || error?.message || "Failed to send message");
+      const msg = data?.error || error?.message || "Failed to send message";
+      toast.error(msg);
+      setStatus({ kind: "error", label: "Send Failed", detail: msg });
       return;
     }
     toast.success(`Test message sent to ${data.sent} chat(s)`);
   }
+
 
   return (
     <div>
@@ -174,6 +211,14 @@ export default function AdminTelegramIntegration() {
                 >
                   {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                   Test Connection
+                </button>
+                <button
+                  onClick={verifyChatId}
+                  disabled={verifying}
+                  className="px-4 h-10 rounded-lg bg-white/10 border border-white/10 text-white text-sm font-semibold disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  Verify Chat ID
                 </button>
                 <button
                   onClick={sendTestMessage}
