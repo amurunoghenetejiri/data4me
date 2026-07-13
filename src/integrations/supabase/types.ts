@@ -523,6 +523,39 @@ export type Database = {
         }
         Relationships: []
       }
+      direct_messages: {
+        Row: {
+          body: string
+          created_at: string
+          delivered_at: string | null
+          id: string
+          read_at: string | null
+          recipient_id: string
+          sender_id: string
+          sender_is_admin: boolean
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          read_at?: string | null
+          recipient_id: string
+          sender_id: string
+          sender_is_admin?: boolean
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          read_at?: string | null
+          recipient_id?: string
+          sender_id?: string
+          sender_is_admin?: boolean
+        }
+        Relationships: []
+      }
       email_logs: {
         Row: {
           created_at: string
