@@ -12,7 +12,7 @@ export default function About() {
         <p className="text-lg text-muted-foreground mt-3">Thank you for choosing DATA4ME.</p>
         <div className="mt-6 p-5 rounded-2xl bg-accent/40 border border-border">
           <p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">Coverage</p>
-          <p className="text-sm text-muted-foreground">We serve customers in <span className="font-semibold text-foreground">Delta State</span> first, and across all other Nigerian states: Abia, Adamawa, Akwa Ibom, Anambra, Bauchi, Bayelsa, Benue, Borno, Cross River, Ebonyi, Edo, Ekiti, Enugu, FCT (Abuja), Gombe, Imo, Jigawa, Kaduna, Kano, Katsina, Kebbi, Kogi, Kwara, Lagos, Nasarawa, Niger, Ogun, Ondo, Osun, Oyo, Plateau, Rivers, Sokoto, Taraba, Yobe and Zamfara.</p>
+          <p className="text-sm text-muted-foreground">We serve customers in <span className="font-semibold text-foreground">Delta State</span>, and across all other Nigerian states: Abia, Adamawa, Akwa Ibom, Anambra, Bauchi, Bayelsa, Benue, Borno, Cross River, Ebonyi, Edo, Ekiti, Enugu, FCT (Abuja), Gombe, Imo, Jigawa, Kaduna, Kano, Katsina, Kebbi, Kogi, Kwara, Lagos, Nasarawa, Niger, Ogun, Ondo, Osun, Oyo, Plateau, Rivers, Sokoto, Taraba, Yobe and Zamfara.</p>
         </div>
       </div>
 
