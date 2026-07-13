@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
+import { notifyTelegram } from "@/lib/telegram";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
