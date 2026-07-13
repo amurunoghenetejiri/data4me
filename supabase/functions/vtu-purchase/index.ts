@@ -641,6 +641,12 @@ async function buyAirtime(
       amount: productAmount,
     });
 
+    await tgNotify('Airtime Purchase', '📱', {
+      'Event Type': 'Airtime Success', 'User ID': userId, 'Transaction ID': txId,
+      Network: network.toUpperCase(), Phone: phone, Amount: `₦${productAmount}`,
+      Charge: `₦${chargeAmount}`, Total: `₦${totalAmount}`, Status: 'success',
+    });
+
     return {
       success: true,
       data: {
