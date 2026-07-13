@@ -6,7 +6,8 @@ import { useApp } from "@/context/AppContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, Eye, EyeOff, CheckCircle2, Loader2, ArrowRight, ArrowLeft, Building2 } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2, Loader2, ArrowRight, ArrowLeft, Building2 } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
@@ -211,10 +212,8 @@ export function AuthModal() {
     <Dialog open={!!authOpen} onOpenChange={(o) => !o && closeAuth()}>
       <DialogContent className="sm:max-w-md max-h-[92vh] overflow-y-auto p-5 sm:p-6">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-xl bg-gradient-primary grid place-items-center shadow-glow">
-              <Sparkles className="h-5 w-5 text-primary-foreground" />
-            </div>
+          <div className="flex items-center gap-1">
+            <BrandMark size={56} />
             <div>
               <DialogTitle>Welcome to Data4Me</DialogTitle>
               <DialogDescription>{tab === "register" ? wizardTitle : "Sign in to your account"}</DialogDescription>

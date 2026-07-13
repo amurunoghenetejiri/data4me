@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Users, Receipt, ArrowDownToLine, ArrowUpFromLine, BadgeCheck,
   Package, BarChart3, Bell, Settings, ShieldCheck, FileClock, Lock, LifeBuoy,
-  Database, LogOut, Menu, X, Sparkles, Wifi, CreditCard, Activity, Inbox, Sliders, ArrowLeft
+  Database, LogOut, Menu, X, Wifi, CreditCard, Activity, Inbox, Sliders, ArrowLeft
 } from "lucide-react";
 import logoAsset from "@/assets/data4me-logo.png.asset.json";
 import { cn } from "@/lib/utils";
@@ -152,8 +152,9 @@ export default function AdminLayout() {
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-14 border-b border-white/5 bg-slate-900/80 backdrop-blur-xl">
           <button onClick={() => setMobileOpen(true)} className="h-9 w-9 grid place-items-center rounded-lg bg-white/5"><Menu className="h-5 w-5" /></button>
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 grid place-items-center"><Sparkles className="h-4 w-4 text-white" /></div>
+          <div className="flex items-center gap-1">
+            <img src={new URL("@/assets/data4me-logo.png.asset.json", import.meta.url).toString()} alt="" className="hidden" />
+            <BrandMark size={36} />
             <p className="font-bold text-white text-sm">Admin</p>
           </div>
           <span className="ml-auto px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-semibold border border-emerald-500/30">LIVE</span>

@@ -2,7 +2,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Transaction } from "@/lib/data";
 import { useApp } from "@/context/AppContext";
-import { CheckCircle2, Download, Printer, Sparkles, X } from "lucide-react";
+import { CheckCircle2, Download, Printer, X } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 
 interface Props {
   tx: Transaction | null;
@@ -47,7 +48,7 @@ export function ReceiptDialog({ tx, onClose }: Props) {
       <DialogContent className="sm:max-w-md p-0 overflow-hidden">
         <div className="bg-gradient-primary text-primary-foreground p-6 relative">
           <button onClick={onClose} className="absolute top-3 right-3 opacity-80 hover:opacity-100"><X className="h-5 w-5" /></button>
-          <div className="flex items-center gap-2 mb-3"><Sparkles className="h-5 w-5" /><span className="font-bold">Data4Me</span></div>
+          <div className="flex items-center gap-1 mb-3"><BrandMark size={36} /><span className="font-bold">Data4Me</span></div>
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-full bg-white/20 grid place-items-center"><CheckCircle2 className="h-6 w-6" /></div>
             <div>
