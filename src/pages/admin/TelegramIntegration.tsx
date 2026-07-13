@@ -219,6 +219,7 @@ export default function AdminTelegramIntegration() {
                 >
                   {verifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                   Verify Chat ID
+                </button>
                 <button
                   onClick={sendTestMessage}
                   disabled={sending}
