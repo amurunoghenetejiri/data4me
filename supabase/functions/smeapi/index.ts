@@ -27,12 +27,7 @@ function authHeaders() {
   } as Record<string, string>;
 }
 
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${API_KEY}`,
-    'x-api-key': API_KEY,
-    'x-username': USERNAME,
-  } as Record<string, string>;
-}
+
 
 async function call(path: string, init?: RequestInit) {
   const started = Date.now();
