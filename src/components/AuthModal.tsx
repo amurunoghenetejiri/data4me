@@ -181,6 +181,13 @@ export function AuthModal() {
       const { error } = await supabase.auth.verifyOtp({ email: acct.email, token: otp, type: "signup" });
       if (error) throw error;
       await persistBankIfNeeded();
+      notifyTelegram("New User Registration", "🎉", {
+        "Event Type": "User Registered",
+        Username: acct.username || acct.email,
+        Email: acct.email,
+        Phone: acct.phone || "-",
+        Status: "verified",
+      });
       toast.success("Account verified! Welcome to Data4Me.");
       setStep("done");
       closeAuth();
