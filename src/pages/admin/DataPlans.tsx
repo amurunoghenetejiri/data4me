@@ -139,11 +139,16 @@ export default function AdminDataPlans() {
           <Button variant="outline" className="border-emerald-500/40 text-emerald-300" onClick={async () => {
             const t = toast.loading("Syncing SMEAPI plans…");
             const { data, error } = await supabase.functions.invoke("smeapi", { body: { action: "sync-plans" } });
-            if (error) { toast.error(error.message || "Sync failed", { id: t }); return; }
-            toast.success(`Synced — ${data?.inserted || 0} new, ${data?.updated || 0} updated`, { id: t });
+            if (error || !data?.success) {
+              toast.error(error?.message || data?.error || "Sync failed", { id: t });
+              return;
+            }
+            toast.success(
+              `✓ ${data.imported || 0} imported · ${data.updated || 0} updated · ${data.removed || 0} removed`,
+              { id: t, duration: 6000 }
+            );
             load();
           }}><Database className="h-4 w-4 mr-2" />Sync from SMEAPI</Button>
-          <Button onClick={() => setEditing({ ...empty })} className="bg-gradient-to-r from-violet-600 to-indigo-600"><Plus className="h-4 w-4 mr-2" />New plan</Button>
         </div>
 
       </div>
