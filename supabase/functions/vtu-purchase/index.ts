@@ -23,7 +23,7 @@ function loadConfig(): Config {
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   // Standardised on SMEAPI_* env vars (single VTU provider)
   const smeapiKey = Deno.env.get('SMEAPI_API_KEY') || Deno.env.get('SMEAPI_KEY') || '';
-  const smeapiBaseUrl = Deno.env.get('SMEAPI_BASE_URL') || 'https://smeapi.com/api';
+  const smeapiBaseUrl = Deno.env.get('SMEAPI_BASE_URL') || 'https://smeapi.com.ng/api';
   const smeapiUsername = Deno.env.get('SMEAPI_USERNAME');
   const smeapiPin = Deno.env.get('SMEAPI_PIN');
 

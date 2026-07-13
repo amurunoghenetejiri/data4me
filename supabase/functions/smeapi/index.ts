@@ -5,7 +5,7 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2.45.0';
 
-const BASE = Deno.env.get('SMEAPI_BASE_URL') || 'https://smeapi.com/api';
+const BASE = Deno.env.get('SMEAPI_BASE_URL') || 'https://smeapi.com.ng/api';
 const USERNAME = Deno.env.get('SMEAPI_USERNAME') || '';
 const API_KEY = Deno.env.get('SMEAPI_API_KEY') || '';
 const PIN = Deno.env.get('SMEAPI_PIN') || '';
