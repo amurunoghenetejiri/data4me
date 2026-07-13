@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { Sparkles, Twitter, Facebook, Instagram, Mail } from "lucide-react";
+import { Twitter, Facebook, Instagram, Mail } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 
 export function Footer() {
   const cols = [
@@ -12,8 +13,8 @@ export function Footer() {
     <footer className="mt-24 border-t border-border bg-muted/30">
       <div className="container py-14 grid gap-10 md:grid-cols-2 lg:grid-cols-6">
         <div className="lg:col-span-2">
-          <Link to="/" className="flex items-center gap-2 mb-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-primary grid place-items-center shadow-glow"><Sparkles className="h-5 w-5 text-primary-foreground" /></div>
+          <Link to="/" className="flex items-center gap-1 mb-3">
+            <BrandMark size={52} />
             <span className="font-bold text-lg">Data<span className="text-gradient">4Me</span></span>
           </Link>
           <p className="text-sm text-muted-foreground max-w-xs">Instant, affordable data & airtime for MTN, Glo, Airtel and 9mobile. Built for Nigeria.</p>

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ShieldCheck } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -40,8 +40,8 @@ export default function ResetPassword() {
   return (
     <div className="container py-16 max-w-md">
       <Card className="p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="h-9 w-9 rounded-xl bg-gradient-primary text-primary-foreground grid place-items-center"><ShieldCheck className="h-5 w-5" /></div>
+        <div className="flex items-center gap-1 mb-4">
+          <BrandMark size={52} />
           <h1 className="text-2xl font-bold">Reset password</h1>
         </div>
         {!ready ? (
