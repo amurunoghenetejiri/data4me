@@ -3,11 +3,31 @@ import { supabase } from "@/integrations/supabase/client";
 export type VTUResponse = {
   success: boolean;
   tx_id?: string;
+  txId?: string;
   charge?: number;
   total?: number;
   error?: string;
+  data?: {
+    txId?: string;
+    refunded?: boolean;
+    provider_status?: number;
+  };
   response?: any;
 };
+
+function parseFunctionError(message?: string) {
+  if (!message) return "";
+
+  const jsonStart = message.indexOf("{");
+  if (jsonStart === -1) return message;
+
+  try {
+    const parsed = JSON.parse(message.slice(jsonStart));
+    return parsed?.error || parsed?.message || message;
+  } catch {
+    return message;
+  }
+}
 
 /**
  * Purchase airtime via vtu-purchase edge function
@@ -31,7 +51,7 @@ export async function buyAirtime(network: string, phone: string, amount: number)
     },
   });
 
-  if (error) throw new Error(error.message || "Failed to purchase airtime");
+  if (error) throw new Error(parseFunctionError(error.message) || "Failed to purchase airtime");
   if (!data) throw new Error("No response from server");
   
   return data as VTUResponse;
@@ -59,7 +79,7 @@ export async function buyData(planId: string, phone: string): Promise<VTURespons
     },
   });
 
-  if (error) throw new Error(error.message || "Failed to purchase data");
+  if (error) throw new Error(parseFunctionError(error.message) || "Failed to purchase data");
   if (!data) throw new Error("No response from server");
   
   return data as VTUResponse;

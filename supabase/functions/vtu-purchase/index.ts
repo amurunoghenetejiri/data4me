@@ -112,6 +112,20 @@ function errorResponse(error: string, statusCode: number = 400, data: any = {}) 
   );
 }
 
+function handledFailureResponse(error: string, data: any = {}) {
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error,
+      ...data,
+    }),
+    {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }
+  );
+}
+
 // ============================================
 // REQUEST VALIDATION
 // ============================================
@@ -597,7 +611,7 @@ async function buyAirtime(
             smeapiResp.body?.message ||
           smeapiResp.body?.error ||
           'Airtime purchase failed',
-        data: { txId },
+        data: { txId, refunded: true, provider_status: smeapiResp.status },
       };
     }
 
@@ -1054,7 +1068,7 @@ Deno.serve(async (req) => {
       if (result.success) {
         return successResponse(result.data);
       } else {
-        return errorResponse(result.error || 'Airtime purchase failed', 400, {
+        return handledFailureResponse(result.error || 'Airtime purchase failed', {
           data: result.data,
         });
       }
