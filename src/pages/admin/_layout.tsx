@@ -6,7 +6,7 @@ import {
   Package, BarChart3, Bell, Settings, ShieldCheck, FileClock, Lock, LifeBuoy,
   Database, LogOut, Menu, X, Wifi, CreditCard, Activity, Inbox, Sliders, ArrowLeft
 } from "lucide-react";
-import logoAsset from "@/assets/data4me-logo.png.asset.json";
+import { BrandMark } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
