@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
+import { notifyTelegram } from "@/lib/telegram";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -181,6 +182,13 @@ export function AuthModal() {
       const { error } = await supabase.auth.verifyOtp({ email: acct.email, token: otp, type: "signup" });
       if (error) throw error;
       await persistBankIfNeeded();
+      notifyTelegram("New User Registration", "🎉", {
+        "Event Type": "User Registered",
+        Username: acct.username || acct.email,
+        Email: acct.email,
+        Phone: acct.phone || "-",
+        Status: "verified",
+      });
       toast.success("Account verified! Welcome to Data4Me.");
       setStep("done");
       closeAuth();

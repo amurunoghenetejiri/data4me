@@ -1,3 +1,4 @@
+import { notifyTelegram } from "@/lib/telegram";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,6 +102,14 @@ export default function Wallet() {
       setOpen(true);
       setReceipt(null);
       if (fileRef.current) fileRef.current.value = "";
+      notifyTelegram("Wallet Funding Request", "🧾", {
+        "Event Type": "Funding Request",
+        "User ID": user.id,
+        Username: user.username || user.email,
+        Amount: `₦${amount}`,
+        Bank: bank,
+        Status: "pending",
+      });
       toast.success("Receipt submitted. Wallet will credit once approved.");
     } catch (e: any) {
       toast.error(e.message || "Could not submit receipt");

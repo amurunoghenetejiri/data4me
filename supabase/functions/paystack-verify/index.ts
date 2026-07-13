@@ -1,6 +1,7 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2.45.0'
 import { getActivePaystackSecret } from '../_shared/paystack.ts'
+import { notifyTelegram } from '../_shared/telegram.ts'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -54,6 +55,19 @@ Deno.serve(async (req) => {
           credited = true
         }
       }
+    }
+
+    if (credited) {
+      const lines = [
+        '💰 <b>DATA4ME • Wallet Funded (Paystack)</b>',
+        `<b>Event Type:</b> Wallet Credit`,
+        `<b>Amount:</b> ₦${amount}`,
+        `<b>Reference:</b> ${reference}`,
+        email ? `<b>Email:</b> ${email}` : '',
+        `<b>Status:</b> success`,
+        `<b>Time:</b> ${new Date().toISOString()}`,
+      ].filter(Boolean).join('\n')
+      notifyTelegram(lines)
     }
 
     return json({

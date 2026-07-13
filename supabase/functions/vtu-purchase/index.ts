@@ -4,6 +4,11 @@
 
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2.45.0';
+import { notifyTelegram } from '../_shared/telegram.ts';
+
+async function tgNotify(title: string, emoji: string, rows: Record<string, any>) {
+  try { notifyTelegram(`${emoji} <b>DATA4ME • ${title}</b>\n` + Object.entries(rows).filter(([,v]) => v!=null && v!=='').map(([k,v]) => `<b>${k}:</b> ${v}`).join('\n') + `\n<b>Time:</b> ${new Date().toISOString()}`); } catch {}
+}
 
 // ============================================
 // ENVIRONMENT CONFIGURATION
@@ -604,13 +609,14 @@ async function buyAirtime(
         logger.error('REFUND_FAILED', refundErr, { txId });
       }
 
+      const failMsg = smeapiResp.body?.msg || smeapiResp.body?.message || smeapiResp.body?.error || 'Airtime purchase failed';
+      await tgNotify('Airtime Failed', '❌', {
+        'Event Type': 'Airtime Failed', 'User ID': userId, 'Transaction ID': txId,
+        Network: network.toUpperCase(), Phone: phone, Amount: `₦${productAmount}`, Status: 'failed', Reason: failMsg,
+      });
       return {
         success: false,
-        error:
-          smeapiResp.body?.msg ||
-            smeapiResp.body?.message ||
-          smeapiResp.body?.error ||
-          'Airtime purchase failed',
+        error: failMsg,
         data: { txId, refunded: true, provider_status: smeapiResp.status },
       };
     }
@@ -634,6 +640,12 @@ async function buyAirtime(
       network,
       phone,
       amount: productAmount,
+    });
+
+    await tgNotify('Airtime Purchase', '📱', {
+      'Event Type': 'Airtime Success', 'User ID': userId, 'Transaction ID': txId,
+      Network: network.toUpperCase(), Phone: phone, Amount: `₦${productAmount}`,
+      Charge: `₦${chargeAmount}`, Total: `₦${totalAmount}`, Status: 'success',
     });
 
     return {
@@ -907,14 +919,15 @@ async function buyData(
         logger.error('REFUND_FAILED', refundErr, { txId });
       }
 
+      const failMsg = smeapiResp.body?.msg || smeapiResp.body?.message || smeapiResp.body?.error || 'Data purchase failed';
+      await tgNotify('Data Failed', '❌', {
+        'Event Type': 'Data Failed', 'User ID': userId, 'Transaction ID': txId,
+        Network: plan.network, 'Data Size': plan.data_size, Phone: phone, Amount: `₦${productAmount}`, Status: 'failed', Reason: failMsg,
+      });
       return {
         success: false,
-        error:
-          smeapiResp.body?.msg ||
-            smeapiResp.body?.message ||
-          smeapiResp.body?.error ||
-          'Data purchase failed',
-        data: { txId },
+        error: failMsg,
+        data: { txId, refunded: true },
       };
     }
 
@@ -937,6 +950,12 @@ async function buyData(
       network: plan.network,
       dataSize: plan.data_size,
       phone,
+    });
+
+    await tgNotify('Data Purchase', '📶', {
+      'Event Type': 'Data Success', 'User ID': userId, 'Transaction ID': txId,
+      Network: plan.network, 'Data Size': plan.data_size, Phone: phone,
+      Amount: `₦${productAmount}`, Charge: `₦${chargeAmount}`, Total: `₦${totalAmount}`, Status: 'success',
     });
 
     return {
