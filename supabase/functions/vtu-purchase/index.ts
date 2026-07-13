@@ -482,7 +482,7 @@ async function buyAirtime(
       smeapiResp = await smeapiRequest(
         config,
         logger,
-        '/airtime',
+        '/airtime/',
         'POST',
         smeapiPayload,
         txId!,
@@ -779,7 +779,7 @@ async function buyData(
       smeapiResp = await smeapiRequest(
         config,
         logger,
-        '/data',
+        '/data/',
         'POST',
         smeapiPayload,
         txId!,
