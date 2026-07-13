@@ -42,7 +42,9 @@ export default function BuyAirtime() {
       const result = await buyAirtime(network, phone, amount);
       
       if (!result.success) {
-        toast.error(result.error || "Purchase failed", { id: toastId });
+        const refundNote = result.data?.refunded ? " Your wallet has been refunded." : "";
+        toast.error(`${result.error || "Purchase failed"}${refundNote}`, { id: toastId });
+        refreshUser();
         setProcessing(false);
         return;
       }
