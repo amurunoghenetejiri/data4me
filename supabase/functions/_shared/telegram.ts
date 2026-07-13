@@ -9,6 +9,7 @@ export interface TelegramConfig {
   enabled: boolean
 }
 
+// Never cache — always read fresh from the DB so admins see immediate effect.
 export async function getTelegramConfig(): Promise<TelegramConfig> {
   const url = Deno.env.get('SUPABASE_URL')
   const svcKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -24,41 +25,54 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
         .select('name,value')
         .in('name', ['telegram_bot_token', 'telegram_chat_id', 'telegram_extra_chat_ids', 'telegram_enabled'])
       for (const r of data || []) {
-        if (r.name === 'telegram_bot_token') botToken = r.value
-        else if (r.name === 'telegram_chat_id') primaryChat = r.value
+        if (r.name === 'telegram_bot_token') botToken = (r.value || '').trim()
+        else if (r.name === 'telegram_chat_id') primaryChat = (r.value || '').trim()
         else if (r.name === 'telegram_extra_chat_ids') extra = r.value || ''
         else if (r.name === 'telegram_enabled') enabled = r.value !== 'false'
       }
     } catch { /* fall back to env */ }
   }
-  botToken = botToken || Deno.env.get('TELEGRAM_BOT_TOKEN') || null
-  primaryChat = primaryChat || Deno.env.get('TELEGRAM_CHAT_ID') || null
+  botToken = botToken || (Deno.env.get('TELEGRAM_BOT_TOKEN') || '').trim() || null
+  primaryChat = primaryChat || (Deno.env.get('TELEGRAM_CHAT_ID') || '').trim() || null
+  // Store as strings; trim aggressively to avoid whitespace/precision issues.
   const chatIds = [primaryChat, ...extra.split(',')]
-    .map((s) => (s || '').trim())
-    .filter(Boolean) as string[]
+    .map((s) => (s || '').toString().trim())
+    .filter((s) => s.length > 0)
   return { botToken, chatIds, enabled }
 }
 
 async function tgFetch(botToken: string, method: string, body: unknown) {
-  const res = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+  const url = `https://api.telegram.org/bot${botToken}/${method}`
+  const started = Date.now()
+  console.log(`[telegram] → ${method}`, JSON.stringify(body))
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch (e) {
+    console.error(`[telegram] ✗ ${method} network error`, e)
+    return { ok: false, status: 0, json: { description: String((e as Error).message || e) } }
+  }
   const json = await res.json().catch(() => ({}))
+  console.log(`[telegram] ← ${method} status=${res.status} ok=${json?.ok} ${Date.now() - started}ms`, JSON.stringify(json).slice(0, 500))
   return { ok: res.ok && json?.ok === true, status: res.status, json }
 }
 
 // Send a Telegram HTML message with automatic retry. Never throws.
-export async function sendTelegramMessage(text: string): Promise<{ ok: boolean; error?: string; sent: number }> {
+export async function sendTelegramMessage(text: string, overrideChatId?: string): Promise<{ ok: boolean; error?: string; sent: number; details?: any }> {
   try {
     const cfg = await getTelegramConfig()
     if (!cfg.enabled) return { ok: false, error: 'Telegram disabled', sent: 0 }
     if (!cfg.botToken) return { ok: false, error: 'Missing bot token', sent: 0 }
-    if (!cfg.chatIds.length) return { ok: false, error: 'Missing chat id', sent: 0 }
+    const targets = overrideChatId ? [overrideChatId.trim()] : cfg.chatIds
+    if (!targets.length) return { ok: false, error: 'Missing chat id', sent: 0 }
     let sent = 0
     let lastError = ''
-    for (const chatId of cfg.chatIds) {
+    let lastDetails: any = null
+    for (const chatId of targets) {
       let attempt = 0
       while (attempt < 3) {
         const r = await tgFetch(cfg.botToken, 'sendMessage', {
@@ -69,11 +83,14 @@ export async function sendTelegramMessage(text: string): Promise<{ ok: boolean; 
         })
         if (r.ok) { sent++; break }
         lastError = r.json?.description || `HTTP ${r.status}`
+        lastDetails = r.json
+        // Do not retry on 4xx client errors (chat not found, bot blocked, etc.)
+        if (r.status >= 400 && r.status < 500) break
         attempt++
         if (attempt < 3) await new Promise((r) => setTimeout(r, 400 * attempt))
       }
     }
-    return { ok: sent > 0, error: sent === 0 ? lastError : undefined, sent }
+    return { ok: sent > 0, error: sent === 0 ? lastError : undefined, sent, details: lastDetails }
   } catch (e) {
     return { ok: false, error: String((e as Error).message || e), sent: 0 }
   }
@@ -101,29 +118,68 @@ function escapeHtml(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+function friendlyChatError(desc: string, chatId: string): string {
+  const d = (desc || '').toLowerCase()
+  if (d.includes('chat not found')) {
+    return `Telegram says: "chat not found" for chat_id ${chatId}. This usually means the user/group has never messaged the bot. Open your Telegram bot and press Start (or add the bot to the group and send any message), then test again.`
+  }
+  if (d.includes('bot was blocked')) return `The user has blocked the bot. Unblock it in Telegram and try again.`
+  if (d.includes("bot can't initiate")) return `The bot cannot initiate a conversation. Please open the bot in Telegram and press Start first.`
+  if (d.includes('not enough rights')) return `Bot lacks permission to send messages in this chat. Grant it Send Messages permission.`
+  return desc
+}
+
 export async function testTelegramConnection(botToken?: string, chatId?: string) {
   const cfg = botToken && chatId
-    ? { botToken, chatIds: [chatId], enabled: true }
+    ? { botToken: botToken.trim(), chatIds: [chatId.trim()], enabled: true }
     : await getTelegramConfig()
   if (!cfg.botToken) return { status: 'invalid_bot_token', ok: false, error: 'Bot token missing' }
-  if (!cfg.chatIds.length) return { status: 'invalid_chat_id', ok: false, error: 'Chat ID missing' }
+  if (!cfg.chatIds.length || !cfg.chatIds[0]) return { status: 'invalid_chat_id', ok: false, error: 'Chat ID missing or empty' }
   // 1. Validate bot token via getMe
-  let me
-  try {
-    me = await tgFetch(cfg.botToken, 'getMe', {})
-  } catch (e) {
-    return { status: 'network_error', ok: false, error: String((e as Error).message || e) }
-  }
+  const me = await tgFetch(cfg.botToken, 'getMe', {})
   if (!me.ok) {
-    if (me.status === 401) return { status: 'invalid_bot_token', ok: false, error: me.json?.description || 'Unauthorized' }
-    return { status: 'telegram_api_error', ok: false, error: me.json?.description || `HTTP ${me.status}` }
+    if (me.status === 401) return { status: 'invalid_bot_token', ok: false, error: me.json?.description || 'Unauthorized — bot token is invalid', raw: me.json }
+    return { status: 'telegram_api_error', ok: false, error: me.json?.description || `HTTP ${me.status}`, raw: me.json }
   }
-  // 2. Validate chat id via getChat
-  const chatRes = await tgFetch(cfg.botToken, 'getChat', { chat_id: cfg.chatIds[0] })
+  // 2. Validate chat id via getChat — surface the raw Telegram response.
+  const target = cfg.chatIds[0]
+  const chatRes = await tgFetch(cfg.botToken, 'getChat', { chat_id: target })
   if (!chatRes.ok) {
-    const desc = chatRes.json?.description || ''
-    if (/chat not found|invalid/i.test(desc)) return { status: 'invalid_chat_id', ok: false, error: desc, bot: me.json?.result }
-    return { status: 'telegram_api_error', ok: false, error: desc || `HTTP ${chatRes.status}`, bot: me.json?.result }
+    const desc = chatRes.json?.description || `HTTP ${chatRes.status}`
+    const friendly = friendlyChatError(desc, target)
+    const status = /chat not found|invalid|bot can't initiate|bot was blocked/i.test(desc) ? 'invalid_chat_id' : 'telegram_api_error'
+    return { status, ok: false, error: friendly, telegramError: desc, chatId: target, bot: me.json?.result, raw: chatRes.json }
   }
-  return { status: 'connected', ok: true, bot: me.json?.result, chat: chatRes.json?.result }
+  return { status: 'connected', ok: true, bot: me.json?.result, chat: chatRes.json?.result, chatId: target }
+}
+
+// Verify whether a chat ID has actually interacted with the bot via getUpdates.
+export async function verifyChatIdViaUpdates(botToken?: string, chatId?: string) {
+  const cfg = botToken && chatId
+    ? { botToken: botToken.trim(), chatIds: [chatId.trim()], enabled: true }
+    : await getTelegramConfig()
+  if (!cfg.botToken) return { ok: false, status: 'invalid_bot_token', error: 'Bot token missing' }
+  const target = (chatId || cfg.chatIds[0] || '').toString().trim()
+  if (!target) return { ok: false, status: 'invalid_chat_id', error: 'Chat ID missing' }
+
+  const r = await tgFetch(cfg.botToken, 'getUpdates', { limit: 100, timeout: 0, allowed_updates: [] })
+  if (!r.ok) {
+    return { ok: false, status: 'telegram_api_error', error: r.json?.description || `HTTP ${r.status}`, raw: r.json }
+  }
+  const updates: any[] = r.json?.result || []
+  const seenChats = new Set<string>()
+  for (const u of updates) {
+    const chat = u.message?.chat || u.edited_message?.chat || u.channel_post?.chat || u.my_chat_member?.chat
+    if (chat?.id !== undefined) seenChats.add(String(chat.id))
+  }
+  if (seenChats.has(target)) {
+    return { ok: true, status: 'verified', chatId: target, seen: Array.from(seenChats) }
+  }
+  return {
+    ok: false,
+    status: 'not_started',
+    error: `This Chat ID has never started the bot. Open your Telegram bot and press Start, then click Verify again. (Note: getUpdates only shows recent updates; if a webhook is set, Telegram doesn't return updates here.)`,
+    chatId: target,
+    seen: Array.from(seenChats),
+  }
 }
