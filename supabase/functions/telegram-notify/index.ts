@@ -11,7 +11,6 @@ import {
   getTelegramConfig,
   sendTelegramMessage,
   testTelegramConnection,
-  testTelegramConnection,
   verifyChatIdViaUpdates,
 } from '../_shared/telegram.ts'
 
