@@ -35,14 +35,10 @@ Deno.serve(async (req) => {
     const charge = Number(chargeVal || 0)
     const gross = Number(amount) + charge
 
-    // Persist a pending funding_request so it's tracked even if user drops off
-    if (userId) {
-      await svc.from('funding_requests').insert({
-        user_id: userId, amount: Number(amount), reference,
-        provider: 'paystack', status: 'pending', bank: 'Paystack',
-        note: charge > 0 ? `Service charge ₦${charge}. Total paid ₦${gross}.` : null,
-      })
-    }
+    // NOTE: we intentionally do NOT persist a funding_request or transaction here.
+    // Nothing gets recorded until paystack-verify confirms a successful charge.
+    // This prevents "pending"/abandoned/cancelled/PIN-only attempts from ever
+    // appearing in the user's wallet history.
 
     const r = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
