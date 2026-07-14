@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useMemo, useState, ReactNode } fr
 import { Transaction } from "@/lib/data";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { notifyTelegram } from "@/lib/telegram";
+import { parseUserAgent, getClientIp } from "@/lib/clientInfo";
 
 export interface User {
   id?: string;
