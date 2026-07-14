@@ -191,6 +191,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (event === "SIGNED_IN" && session) {
         // log login activity (best-effort)
         supabase.from("login_activity").insert({ user_id: session.user.id, event: "login", user_agent: navigator.userAgent });
+        // Telegram login notification (best-effort, non-blocking)
+        setTimeout(async () => {
+          try {
+            const uid = session.user.id;
+            const [{ data: profile }, { data: rolesData }, ip] = await Promise.all([
+              supabase.from("profiles").select("full_name, username, email, phone").eq("id", uid).maybeSingle(),
+              supabase.from("user_roles").select("role").eq("user_id", uid),
+              getClientIp(),
+            ]);
+            const { device, os } = parseUserAgent();
+            const isAdminUser = !!rolesData?.some((r: any) => r.role === "admin");
+            notifyTelegram(isAdminUser ? "Admin Logged In" : "User Logged In", "🔐", {
+              "Event Type": "user_login",
+              "Full Name": profile?.full_name || "-",
+              Username: profile?.username || "-",
+              Email: profile?.email || session.user.email || "-",
+              Phone: profile?.phone || "-",
+              "User ID": uid,
+              "Login Time": new Date().toISOString(),
+              Device: device,
+              OS: os,
+              IP: ip,
+            });
+          } catch { /* noop */ }
+        }, 0);
       }
     });
     return () => sub.subscription.unsubscribe();
