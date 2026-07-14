@@ -304,6 +304,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     logout: async () => {
       if (user?.id) {
         await supabase.from("login_activity").insert({ user_id: user.id, event: "logout", user_agent: navigator.userAgent });
+        // Telegram logout notification — send BEFORE signOut so JWT is still valid.
+        try {
+          const { device, os } = parseUserAgent();
+          const ip = await getClientIp();
+          // Await so the fetch is issued before we drop the session.
+          await supabase.functions.invoke("telegram-notify", {
+            body: {
+              action: "notify",
+              title: isAdmin ? "Admin Logged Out" : "User Logged Out",
+              emoji: "🚪",
+              rows: {
+                "Event Type": "user_logout",
+                "Full Name": user.name,
+                Username: user.username,
+                "User ID": user.id,
+                "Logout Time": new Date().toISOString(),
+                Device: device,
+                OS: os,
+                IP: ip,
+              },
+            },
+          });
+        } catch { /* noop */ }
       }
       await supabase.auth.signOut();
     },
