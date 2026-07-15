@@ -46,7 +46,7 @@ import AdminPricingCharges from "./pages/admin/PricingCharges";
 import AdminActivityCenter from "./pages/admin/ActivityCenter";
 import AdminBroadcast from "./pages/admin/Notifications";
 import { KycPage, ReportsPage, AdminAccountsPage, SecurityPage, SupportPage, DatabasePage } from "./pages/admin/Misc";
-import AdminSmeapiStatus from "./pages/admin/SmeapiStatus";
+import AdminVtuProviders from "./pages/admin/VtuProviders";
 import AdminMessages from "./pages/admin/Messages";
 import AdminTelegramIntegration from "./pages/admin/TelegramIntegration";
 import Messages from "./pages/Messages";
