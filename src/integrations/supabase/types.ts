@@ -471,6 +471,7 @@ export type Database = {
           plan_id: string
           plan_name: string
           profit: number | null
+          provider: string
           selling_price: number
           service_fee_percent: number
           supplier: string | null
@@ -493,6 +494,7 @@ export type Database = {
           plan_id: string
           plan_name: string
           profit?: number | null
+          provider?: string
           selling_price?: number
           service_fee_percent?: number
           supplier?: string | null
@@ -515,6 +517,7 @@ export type Database = {
           plan_id?: string
           plan_name?: string
           profit?: number | null
+          provider?: string
           selling_price?: number
           service_fee_percent?: number
           supplier?: string | null
@@ -1060,6 +1063,42 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_holds: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          meta: Json | null
+          purpose: string | null
+          reference: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          purpose?: string | null
+          reference?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          purpose?: string | null
+          reference?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wallets: {
         Row: {
           balance: number
@@ -1128,6 +1167,44 @@ export type Database = {
       cancel_funding: {
         Args: { _id: string; _remark?: string }
         Returns: undefined
+      }
+      commit_wallet_hold: {
+        Args: {
+          _description: string
+          _hold_id: string
+          _meta?: Json
+          _type: string
+        }
+        Returns: {
+          amount: number
+          charge: number
+          created_at: string
+          description: string | null
+          id: string
+          meta: Json | null
+          profit: number
+          provider_response: Json | null
+          reference: string
+          status: string
+          supplier_reference: string | null
+          type: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_wallet_hold: {
+        Args: {
+          _amount: number
+          _meta?: Json
+          _purpose: string
+          _user_id: string
+        }
+        Returns: string
       }
       credit_wallet: {
         Args: {
@@ -1201,6 +1278,10 @@ export type Database = {
         Args: { _id: string; _reason?: string }
         Returns: undefined
       }
+      release_wallet_hold: {
+        Args: { _hold_id: string; _reason?: string }
+        Returns: undefined
+      }
       set_user_status: {
         Args: {
           _reason?: string
@@ -1210,6 +1291,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      wallet_available: { Args: { _user_id: string }; Returns: number }
     }
     Enums: {
       app_role: "admin" | "user"
