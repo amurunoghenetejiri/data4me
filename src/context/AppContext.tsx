@@ -164,7 +164,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       avatarId: (p as any)?.avatar_id || "anonymous",
       createdAt: p?.created_at,
     });
-    setWallet(Number(walletRes.data?.balance ?? 0));
+    const avail = (availRes as any)?.data;
+    setWallet(Number(avail ?? walletRes.data?.balance ?? 0));
     setTransactions(((txRes.data as any[]) || []).map((t) => ({
       id: t.id,
       type: t.type,
