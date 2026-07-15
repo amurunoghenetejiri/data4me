@@ -28,7 +28,7 @@ const nav = [
   { to: "/admin/notifications", label: "Notifications", icon: Bell },
   { to: "/admin/payment-settings", label: "Payment Settings", icon: CreditCard },
   { to: "/admin/pricing-charges", label: "Pricing & API Settings", icon: Sliders },
-  { to: "/admin/smeapi-status", label: "SMEAPI Status", icon: Activity },
+  { to: "/admin/vtu-providers", label: "VTU Providers", icon: Server },
   { to: "/admin/telegram", label: "Telegram Integration", icon: Send },
   { to: "/admin/settings", label: "System Settings", icon: Settings },
   { to: "/admin/accounts", label: "Admin Accounts", icon: ShieldCheck },
