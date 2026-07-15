@@ -203,7 +203,7 @@ export default function AdminDataPlans() {
                   <TableHead className="w-8"><input type="checkbox" checked={selected.length > 0 && selected.length === filtered.length} onChange={(e) => setSelected(e.target.checked ? filtered.map((p) => p.id) : [])} /></TableHead>
                   <TableHead>Network</TableHead><TableHead>Plan</TableHead><TableHead>Size</TableHead>
                   <TableHead>Duration</TableHead><TableHead>Cost</TableHead><TableHead>Sell</TableHead>
-                  <TableHead>Disc%</TableHead><TableHead>Fee%</TableHead><TableHead>Status</TableHead>
+                  <TableHead>Disc%</TableHead><TableHead>Fee%</TableHead><TableHead>Provider</TableHead><TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
