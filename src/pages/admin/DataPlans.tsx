@@ -209,9 +209,9 @@ export default function AdminDataPlans() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={11} className="text-center text-slate-500 py-10">Loading…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center text-slate-500 py-10">Loading…</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={11} className="text-center text-slate-500 py-10">No plans match filters.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center text-slate-500 py-10">No plans match filters.</TableCell></TableRow>
                 ) : filtered.map((p) => (
                   <TableRow key={p.id} className="border-white/5">
                     <TableCell><input type="checkbox" checked={selected.includes(p.id)} onChange={(e) => setSelected(e.target.checked ? [...selected, p.id] : selected.filter((x) => x !== p.id))} /></TableCell>
@@ -223,6 +223,7 @@ export default function AdminDataPlans() {
                     <TableCell className="font-semibold">₦{Number(p.selling_price).toLocaleString()}</TableCell>
                     <TableCell>{p.discount_percent}%</TableCell>
                     <TableCell>{p.service_fee_percent}%</TableCell>
+                    <TableCell><Badge className={p.provider === 'smeplug' ? 'bg-violet-500/20 text-violet-200 border-violet-500/30' : 'bg-emerald-500/20 text-emerald-200 border-emerald-500/30'}>{(p.provider || 'smeapi').toUpperCase()}</Badge></TableCell>
                     <TableCell><Switch checked={p.is_active} onCheckedChange={() => toggleActive(p)} /></TableCell>
                     <TableCell className="text-right">
                       <Button size="icon" variant="ghost" onClick={() => setEditing(p)}><Pencil className="h-4 w-4" /></Button>
