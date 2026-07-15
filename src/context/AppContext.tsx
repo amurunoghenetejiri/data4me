@@ -140,9 +140,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
     const uid = session.user.id;
-    const [profileRes, walletRes, txRes, notifRes, rolesRes, frRes] = await Promise.all([
+    const [profileRes, walletRes, availRes, txRes, notifRes, rolesRes, frRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
       supabase.from("wallets").select("balance").eq("user_id", uid).maybeSingle(),
+      supabase.rpc("wallet_available", { _user_id: uid }),
       supabase.from("transactions").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(100),
       supabase.from("notifications").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(50),
       supabase.from("user_roles").select("role").eq("user_id", uid),
