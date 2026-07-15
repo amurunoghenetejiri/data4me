@@ -29,6 +29,7 @@ type Plan = {
   is_promo: boolean;
   is_active: boolean;
   description: string | null;
+  provider: string;
   created_at: string;
   updated_at: string;
 };
@@ -134,21 +135,23 @@ export default function AdminDataPlans() {
           <h1 className="text-2xl font-bold text-white">Data Plans Management</h1>
           <p className="text-sm text-slate-400">Create, price and publish data bundles across all networks.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={load} className="border-white/10"><RefreshCw className="h-4 w-4 mr-2" />Refresh</Button>
-          <Button variant="outline" className="border-emerald-500/40 text-emerald-300" onClick={async () => {
-            const t = toast.loading("Syncing SMEAPI plans…");
-            const { data, error } = await supabase.functions.invoke("smeapi", { body: { action: "sync-plans" } });
-            if (error || !data?.success) {
-              toast.error(error?.message || data?.error || "Sync failed", { id: t });
-              return;
-            }
-            toast.success(
-              `✓ ${data.imported || 0} imported · ${data.updated || 0} updated · ${data.removed || 0} removed`,
-              { id: t, duration: 6000 }
-            );
-            load();
-          }}><Database className="h-4 w-4 mr-2" />Sync from SMEAPI</Button>
+          {(["smeapi", "smeplug"] as const).map((prov) => (
+            <Button key={prov} variant="outline" className="border-emerald-500/40 text-emerald-300" onClick={async () => {
+              const t = toast.loading(`Syncing ${prov.toUpperCase()} plans…`);
+              const { data, error } = await supabase.functions.invoke(prov, { body: { action: "sync-plans" } });
+              if (error || !data?.success) {
+                toast.error(error?.message || data?.error || "Sync failed", { id: t });
+                return;
+              }
+              toast.success(
+                `${prov.toUpperCase()}: ${data.imported || 0} imported · ${data.updated || 0} updated · ${data.removed || 0} removed`,
+                { id: t, duration: 6000 }
+              );
+              load();
+            }}><Database className="h-4 w-4 mr-2" />Sync {prov.toUpperCase()}</Button>
+          ))}
         </div>
 
       </div>
@@ -200,15 +203,15 @@ export default function AdminDataPlans() {
                   <TableHead className="w-8"><input type="checkbox" checked={selected.length > 0 && selected.length === filtered.length} onChange={(e) => setSelected(e.target.checked ? filtered.map((p) => p.id) : [])} /></TableHead>
                   <TableHead>Network</TableHead><TableHead>Plan</TableHead><TableHead>Size</TableHead>
                   <TableHead>Duration</TableHead><TableHead>Cost</TableHead><TableHead>Sell</TableHead>
-                  <TableHead>Disc%</TableHead><TableHead>Fee%</TableHead><TableHead>Status</TableHead>
+                  <TableHead>Disc%</TableHead><TableHead>Fee%</TableHead><TableHead>Provider</TableHead><TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={11} className="text-center text-slate-500 py-10">Loading…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center text-slate-500 py-10">Loading…</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={11} className="text-center text-slate-500 py-10">No plans match filters.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center text-slate-500 py-10">No plans match filters.</TableCell></TableRow>
                 ) : filtered.map((p) => (
                   <TableRow key={p.id} className="border-white/5">
                     <TableCell><input type="checkbox" checked={selected.includes(p.id)} onChange={(e) => setSelected(e.target.checked ? [...selected, p.id] : selected.filter((x) => x !== p.id))} /></TableCell>
@@ -220,6 +223,7 @@ export default function AdminDataPlans() {
                     <TableCell className="font-semibold">₦{Number(p.selling_price).toLocaleString()}</TableCell>
                     <TableCell>{p.discount_percent}%</TableCell>
                     <TableCell>{p.service_fee_percent}%</TableCell>
+                    <TableCell><Badge className={p.provider === 'smeplug' ? 'bg-violet-500/20 text-violet-200 border-violet-500/30' : 'bg-emerald-500/20 text-emerald-200 border-emerald-500/30'}>{(p.provider || 'smeapi').toUpperCase()}</Badge></TableCell>
                     <TableCell><Switch checked={p.is_active} onCheckedChange={() => toggleActive(p)} /></TableCell>
                     <TableCell className="text-right">
                       <Button size="icon" variant="ghost" onClick={() => setEditing(p)}><Pencil className="h-4 w-4" /></Button>

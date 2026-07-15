@@ -140,9 +140,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
     const uid = session.user.id;
-    const [profileRes, walletRes, txRes, notifRes, rolesRes, frRes] = await Promise.all([
+    const [profileRes, walletRes, availRes, txRes, notifRes, rolesRes, frRes] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
       supabase.from("wallets").select("balance").eq("user_id", uid).maybeSingle(),
+      supabase.rpc("wallet_available", { _user_id: uid }),
       supabase.from("transactions").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(100),
       supabase.from("notifications").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(50),
       supabase.from("user_roles").select("role").eq("user_id", uid),
@@ -163,7 +164,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       avatarId: (p as any)?.avatar_id || "anonymous",
       createdAt: p?.created_at,
     });
-    setWallet(Number(walletRes.data?.balance ?? 0));
+    const avail = (availRes as any)?.data;
+    setWallet(Number(avail ?? walletRes.data?.balance ?? 0));
     setTransactions(((txRes.data as any[]) || []).map((t) => ({
       id: t.id,
       type: t.type,
@@ -228,11 +230,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const ch = supabase
       .channel(`user-${user.id}`)
       // Wallet updates
-      .on("postgres_changes", { event: "*", schema: "public", table: "wallets", filter: `user_id=eq.${user.id}` }, (p) => {
-        const bal = (p.new as any)?.balance;
-        if (bal != null) {
-          setWallet(Number(bal));
-        }
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallets", filter: `user_id=eq.${user.id}` }, async () => {
+        const { data } = await supabase.rpc("wallet_available", { _user_id: user.id });
+        if (data != null) setWallet(Number(data));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallet_holds", filter: `user_id=eq.${user.id}` }, async () => {
+        const { data } = await supabase.rpc("wallet_available", { _user_id: user.id });
+        if (data != null) setWallet(Number(data));
       })
       // Transaction inserts
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "transactions", filter: `user_id=eq.${user.id}` }, (p) => {
