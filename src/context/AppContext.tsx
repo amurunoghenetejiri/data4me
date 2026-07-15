@@ -230,11 +230,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const ch = supabase
       .channel(`user-${user.id}`)
       // Wallet updates
-      .on("postgres_changes", { event: "*", schema: "public", table: "wallets", filter: `user_id=eq.${user.id}` }, (p) => {
-        const bal = (p.new as any)?.balance;
-        if (bal != null) {
-          setWallet(Number(bal));
-        }
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallets", filter: `user_id=eq.${user.id}` }, async () => {
+        const { data } = await supabase.rpc("wallet_available", { _user_id: user.id });
+        if (data != null) setWallet(Number(data));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallet_holds", filter: `user_id=eq.${user.id}` }, async () => {
+        const { data } = await supabase.rpc("wallet_available", { _user_id: user.id });
+        if (data != null) setWallet(Number(data));
       })
       // Transaction inserts
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "transactions", filter: `user_id=eq.${user.id}` }, (p) => {
