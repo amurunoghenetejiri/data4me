@@ -29,6 +29,7 @@ type Plan = {
   is_promo: boolean;
   is_active: boolean;
   description: string | null;
+  provider: string;
   created_at: string;
   updated_at: string;
 };
