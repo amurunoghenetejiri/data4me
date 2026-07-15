@@ -35,7 +35,7 @@ export function Footer() {
       </div>
       <div className="border-t border-border">
         <div className="container py-5 flex flex-col sm:flex-row gap-2 justify-between text-xs text-muted-foreground">
-          <p>© {new Date().getFullYear()} <span className="font-semibold text-foreground">D4 TECH</span> All Rights Reserved.</p>
+          <p>© {new Date().getFullYear()} <span className="font-semibold text-foreground"> D4 TECH </span> All Rights Reserved.</p>
           <p>Data4Me • Designed & Developed by D4 TECH.</p>
         </div>
       </div>
