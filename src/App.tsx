@@ -83,7 +83,8 @@ const App = () => (
               <Route path="security" element={<SecurityPage />} />
               <Route path="support" element={<SupportPage />} />
               <Route path="database" element={<DatabasePage />} />
-              <Route path="smeapi-status" element={<AdminSmeapiStatus />} />
+              <Route path="vtu-providers" element={<AdminVtuProviders />} />
+              <Route path="smeapi-status" element={<AdminVtuProviders />} />
               <Route path="messages" element={<AdminMessages />} />
               <Route path="telegram" element={<AdminTelegramIntegration />} />
             </Route>
