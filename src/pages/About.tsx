@@ -8,7 +8,7 @@ export default function About() {
       <div className="max-w-3xl">
         <span className="text-xs uppercase tracking-widest text-primary font-semibold">About us</span>
         <h1 className="text-4xl md:text-5xl font-bold mt-2">Welcome to our platform.</h1>
-        <p className="text-lg text-muted-foreground mt-4">DATA4ME is a product of <span className="font-semibold text-foreground">DEST-GLOBAL LIMITED</span>. Our mission is to provide affordable data subscriptions, airtime services, and seamless wallet funding for all users across Nigeria — starting from Delta State and serving every state nationwide.</p>
+        <p className="text-lg text-muted-foreground mt-4">DATA4ME is a product of <span className="font-semibold text-foreground">D4 TECH</span>. Our mission is to provide affordable data subscriptions, airtime services, and seamless wallet funding for all users across Nigeria — starting from Delta State and serving every state nationwide.</p>
         <p className="text-lg text-muted-foreground mt-3">Thank you for choosing DATA4ME.</p>
         <div className="mt-6 p-5 rounded-2xl bg-accent/40 border border-border">
           <p className="text-xs uppercase tracking-widest text-primary font-semibold mb-2">Coverage</p>
