@@ -16,7 +16,7 @@ export default function Contact() {
           <h1 className="text-4xl font-bold">Talk to us.</h1>
           <p className="text-muted-foreground mt-3 max-w-md">Questions, partnerships, or feedback — we read every message.</p>
           <div className="space-y-4 mt-8">
-            <Info icon={Mail} title="Email" value={settings.supportEmail} />
+            <Info icon={Mail} title="Email" value="data4me12@gmail.com" />
             <Info icon={Phone} title="Support phone" value="08165906606" />
             <Info icon={MapPin} title="Developer" value="Destiny" />
           </div>
