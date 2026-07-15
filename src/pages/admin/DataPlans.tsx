@@ -135,21 +135,23 @@ export default function AdminDataPlans() {
           <h1 className="text-2xl font-bold text-white">Data Plans Management</h1>
           <p className="text-sm text-slate-400">Create, price and publish data bundles across all networks.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={load} className="border-white/10"><RefreshCw className="h-4 w-4 mr-2" />Refresh</Button>
-          <Button variant="outline" className="border-emerald-500/40 text-emerald-300" onClick={async () => {
-            const t = toast.loading("Syncing SMEAPI plans…");
-            const { data, error } = await supabase.functions.invoke("smeapi", { body: { action: "sync-plans" } });
-            if (error || !data?.success) {
-              toast.error(error?.message || data?.error || "Sync failed", { id: t });
-              return;
-            }
-            toast.success(
-              `✓ ${data.imported || 0} imported · ${data.updated || 0} updated · ${data.removed || 0} removed`,
-              { id: t, duration: 6000 }
-            );
-            load();
-          }}><Database className="h-4 w-4 mr-2" />Sync from SMEAPI</Button>
+          {(["smeapi", "smeplug"] as const).map((prov) => (
+            <Button key={prov} variant="outline" className="border-emerald-500/40 text-emerald-300" onClick={async () => {
+              const t = toast.loading(`Syncing ${prov.toUpperCase()} plans…`);
+              const { data, error } = await supabase.functions.invoke(prov, { body: { action: "sync-plans" } });
+              if (error || !data?.success) {
+                toast.error(error?.message || data?.error || "Sync failed", { id: t });
+                return;
+              }
+              toast.success(
+                `${prov.toUpperCase()}: ${data.imported || 0} imported · ${data.updated || 0} updated · ${data.removed || 0} removed`,
+                { id: t, duration: 6000 }
+              );
+              load();
+            }}><Database className="h-4 w-4 mr-2" />Sync {prov.toUpperCase()}</Button>
+          ))}
         </div>
 
       </div>
