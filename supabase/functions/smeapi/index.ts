@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
           const { data: existing } = await svc
             .from('data_plans')
             .select('id, selling_price, cost_price')
-            .eq('network', network).eq('plan_id', plan_id).maybeSingle();
+            .eq('provider', 'smeapi').eq('network', network).eq('plan_id', plan_id).maybeSingle();
 
           if (existing) {
             const oldCost = Number(existing.cost_price) || 0;
@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
             const { error } = await svc.from('data_plans').update({
               plan_name, data_size, validity, duration: validity, category,
               cost_price: cost, selling_price, api_code: plan_id,
-              supplier: 'smeapi', is_active: true,
+              supplier: 'smeapi', provider: 'smeapi', is_active: true,
             }).eq('id', existing.id);
             if (error) { console.error('[sync-plans] update failed', plan_id, error.message); skipped++; }
             else updated++;
@@ -145,21 +145,22 @@ Deno.serve(async (req) => {
             const { error } = await svc.from('data_plans').insert({
               network, plan_id, plan_name, data_size, validity, duration: validity,
               category, cost_price: cost, selling_price, api_code: plan_id,
-              supplier: 'smeapi', is_active: true,
+              supplier: 'smeapi', provider: 'smeapi', is_active: true,
             });
             if (error) { console.error('[sync-plans] insert failed', plan_id, error.message); skipped++; }
             else imported++;
           }
         }
 
-        // Remove plans that SMEAPI no longer returns
-        const { data: allPlans } = await svc.from('data_plans').select('id, network, plan_id');
+        // Remove SMEAPI plans that SMEAPI no longer returns (does NOT touch SMEPlug plans)
+        const { data: allPlans } = await svc.from('data_plans').select('id, network, plan_id').eq('provider', 'smeapi');
         const stale = (allPlans || []).filter((p: any) => !seen.has(`${p.network}:${p.plan_id}`)).map((p: any) => p.id);
         if (stale.length) {
           const { error } = await svc.from('data_plans').delete().in('id', stale);
           if (!error) removed = stale.length;
           else console.error('[sync-plans] delete stale failed', error.message);
         }
+
 
         console.log(`[sync-plans] imported=${imported} updated=${updated} removed=${removed} skipped=${skipped}`);
         return json({ success: true, imported, updated, removed, skipped, received: list.length });

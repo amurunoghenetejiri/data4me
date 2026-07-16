@@ -54,8 +54,10 @@ Deno.serve(async (req) => {
     switch (action) {
       case 'status':
       case 'balance': {
-        const r = await call('/user', { method: 'GET' });
-        const balance = Number(r.body?.balance ?? r.body?.data?.balance ?? r.body?.user?.balance ?? r.body?.wallet_balance ?? 0);
+        const r = await call('/account/balance', { method: 'GET' });
+        const balance = Number(
+          r.body?.balance ?? r.body?.data?.balance ?? r.body?.wallet_balance ?? r.body?.account_balance ?? 0
+        );
         return json({
           provider: 'smeplug',
           base_url: BASE,
