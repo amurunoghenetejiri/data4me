@@ -18,6 +18,11 @@ export default function Pricing() {
   ];
   return (
     <div className="container py-10">
+      <Seo
+        title="DATA4ME Pricing – Data & Airtime Rates in Nigeria"
+        description="Compare DATA4ME data bundle and airtime prices for MTN, Glo, Airtel and 9mobile with transparent per-plan pricing."
+        path="/pricing"
+      />
       <h1 className="text-3xl font-bold">Pricing</h1>
       <p className="text-muted-foreground mt-1 mb-8">Transparent prices for every network. Plus optional plans for power users.</p>
 
