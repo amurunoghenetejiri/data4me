@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://data4me.lovable.app/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://data4me.lovable.app/about</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://data4me.lovable.app/faq</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://data4me.lovable.app/pricing</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://data4me.lovable.app/contact</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://data4me.lovable.app/buy-data</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://data4me.lovable.app/buy-airtime</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://data4me.lovable.app/cable</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://data4me.lovable.app/electricity</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://data4me.lovable.app/networks</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://data4me.lovable.app/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://data4me.lovable.app/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+</urlset>

@@ -1,0 +1,21 @@
+# DATA4ME
+
+> Fast and affordable VTU platform for buying data, airtime, cable TV subscriptions and electricity tokens in Nigeria.
+
+DATA4ME is a product of DEST-GLOBAL LIMITED (D4 TECH), serving customers across all 36 Nigerian states starting from Delta State. We provide instant data bundles, airtime top-ups, cable TV renewals and electricity bill payments through a secure wallet system.
+
+## Pages
+- [Home](/): Overview of DATA4ME services and pricing highlights
+- [About](/about): Company mission, coverage and team behind DATA4ME
+- [Pricing](/pricing): Data bundle and airtime pricing across MTN, Glo, Airtel and 9mobile
+- [Networks](/networks): Supported mobile networks and coverage details
+- [Buy Data](/buy-data): Purchase data bundles for all Nigerian networks
+- [Buy Airtime](/buy-airtime): Purchase airtime top-ups for all Nigerian networks
+- [Cable TV](/cable): Renew DStv, GOtv and Startimes subscriptions
+- [Electricity](/electricity): Pay electricity bills and buy prepaid tokens
+- [FAQ](/faq): Common questions about delivery, refunds and supported services
+- [Contact](/contact): Support channels and business enquiries
+
+## Optional
+- [Terms of Service](/terms)
+- [Privacy Policy](/privacy)
