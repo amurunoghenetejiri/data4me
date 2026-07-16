@@ -62,7 +62,7 @@ export default function Dashboard() {
         <div className="relative flex flex-wrap items-center gap-4">
           <div className="relative">
             <div className="h-20 w-20 rounded-2xl overflow-hidden avatar-3d avatar-glow ring-2 ring-primary/30">
-              <img src={getAvatar(user.avatarId).url} alt="avatar" className="h-full w-full object-cover avatar-wave" />
+              <img src={getAvatar(user.avatarId).url} alt="User profile avatar" className="h-full w-full object-cover avatar-wave" />
             </div>
             <span className="sparkle absolute -top-1 -right-1 text-yellow-400"><Sparkles className="h-4 w-4" /></span>
           </div>

@@ -6,11 +6,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Mail, Phone, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
+import { Seo } from "@/components/Seo";
 
 export default function Contact() {
   const { settings } = useApp();
   return (
     <div className="container py-12">
+      <Seo
+        title="Contact DATA4ME – Support & Business Enquiries"
+        description="Reach the DATA4ME support team for help with data, airtime, wallet funding and partnership enquiries across Nigeria."
+        path="/contact"
+      />
       <div className="grid lg:grid-cols-2 gap-10">
         <div>
           <h1 className="text-4xl font-bold">Talk to us.</h1>

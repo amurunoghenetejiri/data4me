@@ -122,7 +122,7 @@ export function Navbar() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger className="h-10 w-10 rounded-full overflow-hidden bg-gradient-primary text-primary-foreground font-semibold grid place-items-center shadow-md ring-2 ring-background">
-                <img src={getAvatar(user.avatarId).url} alt="avatar" className="h-full w-full object-cover" />
+                <img src={getAvatar(user.avatarId).url} alt="User profile avatar" className="h-full w-full object-cover" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>

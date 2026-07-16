@@ -1,13 +1,19 @@
 import { Card } from "@/components/ui/card";
 import { stats } from "@/lib/data";
 import { Target, Heart, Users, Rocket } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 export default function About() {
   return (
     <div className="container py-12">
+      <Seo
+        title="About DATA4ME: Affordable Data and Airtime in Nigeria"
+        description="DATA4ME by DEST-GLOBAL LIMITED delivers affordable data bundles, airtime and wallet services to every Nigerian state, starting from Delta State."
+        path="/about"
+      />
       <div className="max-w-3xl">
         <span className="text-xs uppercase tracking-widest text-primary font-semibold">About us</span>
-        <h1 className="text-4xl md:text-5xl font-bold mt-2">Welcome to our platform.</h1>
+        <h1 className="text-4xl md:text-5xl font-bold mt-2">About DATA4ME: Affordable Data and Airtime in Nigeria</h1>
         <p className="text-lg text-muted-foreground mt-4">DATA4ME is a product of <span className="font-semibold text-foreground">D4 TECH</span>. Our mission is to provide affordable data subscriptions, airtime services, and seamless wallet funding for all users across Nigeria — starting from Delta State and serving every state nationwide.</p>
         <p className="text-lg text-muted-foreground mt-3">Thank you for choosing DATA4ME.</p>
         <div className="mt-6 p-5 rounded-2xl bg-accent/40 border border-border">
@@ -31,7 +37,7 @@ export default function About() {
         ].map((b) => (
           <Card key={b.title} className="p-6 bg-gradient-card shadow-card hover-lift">
             <div className="h-11 w-11 rounded-xl bg-accent text-accent-foreground grid place-items-center mb-3"><b.icon className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-lg">{b.title}</h3>
+            <h2 className="font-semibold text-lg">{b.title}</h2>
             <p className="text-muted-foreground text-sm mt-1.5">{b.body}</p>
           </Card>
         ))}
