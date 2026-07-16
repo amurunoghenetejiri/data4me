@@ -37,7 +37,7 @@ export default function About() {
         ].map((b) => (
           <Card key={b.title} className="p-6 bg-gradient-card shadow-card hover-lift">
             <div className="h-11 w-11 rounded-xl bg-accent text-accent-foreground grid place-items-center mb-3"><b.icon className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-lg">{b.title}</h3>
+            <h2 className="font-semibold text-lg">{b.title}</h2>
             <p className="text-muted-foreground text-sm mt-1.5">{b.body}</p>
           </Card>
         ))}

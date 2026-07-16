@@ -307,7 +307,7 @@ export default function ReceiptQueue() {
               {previewReceipt.receipt_url.toLowerCase().endsWith(".pdf") ? (
                 <iframe src={previewReceipt.receipt_url} className="w-full h-96 rounded-lg border border-white/10" />
               ) : (
-                <img src={previewReceipt.receipt_url} alt="Receipt" className="w-full rounded-lg border border-white/10 max-h-96 object-contain" />
+                <img src={previewReceipt.receipt_url} alt="Wallet funding receipt preview" className="w-full rounded-lg border border-white/10 max-h-96 object-contain" />
               )}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>

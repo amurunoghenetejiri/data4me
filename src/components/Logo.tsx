@@ -5,7 +5,7 @@ export function Logo({ className = "" }: { className?: string }) {
     <Link to="/" className={`flex items-center gap-1 group ${className}`}>
       <img
         src="/data4me-logo.png"
-        alt="DATA4ME logo"
+        alt="DATA4ME brand logo"
         className="h-14 w-auto object-contain drop-shadow-md group-hover:scale-105 transition"
         loading="eager"
         decoding="async"
