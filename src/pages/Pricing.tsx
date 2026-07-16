@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
+import { Seo } from "@/components/Seo";
 
 export default function Pricing() {
   const [tab, setTab] = useState<NetworkId>("mtn");

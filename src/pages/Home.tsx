@@ -4,10 +4,16 @@ import { Card } from "@/components/ui/card";
 import { ArrowRight, Wifi, Phone, ShieldCheck, Zap, Wallet, Headphones, Star, CheckCircle2 } from "lucide-react";
 import { networks, stats, testimonials } from "@/lib/data";
 import { NetworkBadge } from "@/components/NetworkBadge";
+import { Seo } from "@/components/Seo";
 
 export default function Home() {
   return (
     <div>
+      <Seo
+        title="DATA4ME – Cheap Data & Airtime in Nigeria"
+        description="Instant data bundles, airtime, cable TV renewals and electricity tokens for MTN, Glo, Airtel and 9mobile — powered by DATA4ME."
+        path="/"
+      />
       {/* HERO */}
       <section className="relative overflow-hidden bg-gradient-hero">
         <div className="absolute inset-0 -z-0 [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_70%)]">
