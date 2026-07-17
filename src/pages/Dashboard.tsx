@@ -80,7 +80,7 @@ export default function Dashboard() {
         <div className="relative grid sm:grid-cols-[1fr_auto] gap-4 items-center">
           <div>
             <p className="text-xs opacity-80 flex items-center gap-1"><WalletIcon className="h-3.5 w-3.5" /> Wallet balance</p>
-            <p className="text-4xl font-bold mt-1">₦{wallet.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            <p className="text-3xl sm:text-4xl font-bold mt-1 break-all">₦{wallet.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
             <p className="text-xs opacity-80 mt-1">@{user.username}</p>
           </div>
           <div className="flex gap-2">
