@@ -48,13 +48,39 @@ async function requireUser(req: Request): Promise<{ id: string; email?: string }
 // ---------- Provider adapters ----------
 type ProviderResult = { ok: boolean; recoverable: boolean; status: number; body: any; error?: string; reference?: string };
 
-function isSuccessBody(b: any): boolean {
+// SMEAPI success parser — SMEAPI returns { Status: "successful", ... }
+function parseSmeapiSuccess(b: any): boolean {
   if (!b || typeof b !== 'object') return false;
   const s = String(b.Status ?? b.status ?? b.response_code ?? b.status_code ?? '').toLowerCase().trim();
   if (['successful', 'success', 'completed', 'complete', '200', '000'].includes(s)) return true;
   if (b.success === true || b.successful === true) return true;
   const msg = String(b.message ?? b.msg ?? '').toLowerCase();
   return msg.includes('successful') || msg.includes('completed');
+}
+
+// SMEPlug success parser — per SMEPlug docs, purchase endpoints return either:
+//   { "status": true,  "msg": "Data purchase successful", "reference": "..." }
+//   { "status": "success", "data": { "reference": "..." } }
+// Failures come back as HTTP 200 with { "status": false, "msg": "..." } or
+//   { "status": "failed", "msg": "..." }. Never trust HTTP status alone.
+function parseSmeplugSuccess(b: any): boolean {
+  if (!b || typeof b !== 'object') return false;
+  const raw = b.status ?? b.Status;
+  if (raw === true) return true;
+  if (raw === false) return false;
+  const s = String(raw ?? '').toLowerCase().trim();
+  if (['success', 'successful', 'completed', 'complete', 'true', '1'].includes(s)) return true;
+  if (['failed', 'failure', 'error', 'false', '0'].includes(s)) return false;
+  if (b.success === true) return true;
+  if (b.success === false) return false;
+  // Fallback: look for explicit success wording in message.
+  const msg = String(b.msg ?? b.message ?? '').toLowerCase();
+  if (/(successful|completed|processed)/.test(msg)) return true;
+  return false;
+}
+
+function smeplugReference(b: any): string | undefined {
+  return b?.reference || b?.data?.reference || b?.data?.ident || b?.ident || b?.transaction_id || b?.data?.transaction_id;
 }
 
 // Recoverable = provider-side outage / rate-limit / network — safe to retry elsewhere.
@@ -82,7 +108,7 @@ async function callSmeapi(path: string, body: any): Promise<ProviderResult> {
     });
     const text = await res.text();
     let b: any; try { b = JSON.parse(text); } catch { b = { raw: text }; }
-    const success = res.ok && isSuccessBody(b);
+    const success = res.ok && parseSmeapiSuccess(b);
     return {
       ok: success,
       recoverable: !success && isRecoverable(res.status, b),
@@ -96,6 +122,7 @@ async function callSmeapi(path: string, body: any): Promise<ProviderResult> {
   }
 }
 
+
 async function callSmeplug(path: string, body: any): Promise<ProviderResult> {
   if (!SMEPLUG_KEY) return { ok: false, recoverable: false, status: 0, body: null, error: 'SMEPlug not configured' };
   try {
@@ -106,14 +133,17 @@ async function callSmeplug(path: string, body: any): Promise<ProviderResult> {
     });
     const text = await res.text();
     let b: any; try { b = JSON.parse(text); } catch { b = { raw: text }; }
-    const success = res.ok && isSuccessBody(b);
+    // IMPORTANT: SMEPlug returns HTTP 200 for both success AND failure. Never rely on res.ok alone.
+    // Parse the JSON body using SMEPlug's own status/msg fields.
+    const success = parseSmeplugSuccess(b);
+    const errMsg = b?.msg || b?.message || b?.error || (success ? undefined : `Provider returned failure (HTTP ${res.status})`);
     return {
       ok: success,
       recoverable: !success && isRecoverable(res.status, b),
       status: res.status,
       body: b,
-      error: success ? undefined : (b?.message || b?.msg || b?.error || `HTTP ${res.status}`),
-      reference: b?.reference || b?.data?.reference,
+      error: success ? undefined : errMsg,
+      reference: smeplugReference(b),
     };
   } catch (e) {
     return { ok: false, recoverable: true, status: 0, body: null, error: (e as Error).message };
