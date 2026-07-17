@@ -132,14 +132,41 @@ async function callSmeplug(path: string, body: any): Promise<ProviderResult> {
     });
     const text = await res.text();
     let b: any; try { b = JSON.parse(text); } catch { b = { raw: text }; }
-    const success = res.ok && isSuccessBody(b);
+    const success = parseSmapi_ok(res, b);
     return {
       ok: success,
       recoverable: !success && isRecoverable(res.status, b),
       status: res.status,
       body: b,
-      error: success ? undefined : (b?.message || b?.msg || b?.error || `HTTP ${res.status}`),
-      reference: b?.reference || b?.data?.reference,
+      error: success ? undefined : (b?.msg || b?.message || b?.error || `HTTP ${res.status}`),
+      reference: b?.reference || b?.ident || b?.transaction_id,
+    };
+  } catch (e) {
+    return { ok: false, recoverable: true, status: 0, body: null, error: (e as Error).message };
+  }
+}
+
+async function callSmeplug(path: string, body: any): Promise<ProviderResult> {
+  if (!SMEPLUG_KEY) return { ok: false, recoverable: false, status: 0, body: null, error: 'SMEPlug not configured' };
+  try {
+    const res = await fetch(`${SMEPLUG_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SMEPLUG_KEY}`, Accept: 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    let b: any; try { b = JSON.parse(text); } catch { b = { raw: text }; }
+    // IMPORTANT: SMEPlug returns HTTP 200 for both success AND failure. Never rely on res.ok alone.
+    // Parse the JSON body using SMEPlug's own status/msg fields.
+    const success = parseSmeplugSuccess(b);
+    const errMsg = b?.msg || b?.message || b?.error || (success ? undefined : `Provider returned failure (HTTP ${res.status})`);
+    return {
+      ok: success,
+      recoverable: !success && isRecoverable(res.status, b),
+      status: res.status,
+      body: b,
+      error: success ? undefined : errMsg,
+      reference: smeplugReference(b),
     };
   } catch (e) {
     return { ok: false, recoverable: true, status: 0, body: null, error: (e as Error).message };
