@@ -52,7 +52,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-      <div className="container flex h-16 items-center gap-4">
+      <div className="container flex h-16 items-center gap-2 sm:gap-4 min-w-0">
         <Logo />
 
         <nav className="hidden lg:flex items-center gap-1 ml-4">
