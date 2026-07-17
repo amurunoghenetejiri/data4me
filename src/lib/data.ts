@@ -146,10 +146,10 @@ export const sampleTransactions: Transaction[] = [
 ];
 
 export const stats = [
-  { label: "Instant Delivery", value: "10–30 SecondsAverage delivery time", icon: Sparkles },
-  { label: "Secure Payments", value: "256-bit EncryptionYour transactions are protected", icon: CreditCard },
-  { label: "Networks", value: "4 Networks SupportedMTN, Airtel, Glo & 9mobile", icon: Wifi },
-  { label: "Support", value: "24/7 Customer SupportWe're here whenever you need help", icon: Phone },
+  { label: "10–30 SecondsAverage delivery time", value: "Instant delivery", icon: Sparkles },
+  { label: "256-bit EncryptionYour transactions are protected", value: "Secure payments", icon: CreditCard },
+  { label: "4 Networks SupportedMTN, Airtel, Glo & 9mobile", value: "Networks", icon: Wifi },
+  { label: "24/7 Customer SupportWe're here whenever you need help", value: "support", icon: Phone },
 ];
 
 export const testimonials = [
