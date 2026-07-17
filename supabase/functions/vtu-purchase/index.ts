@@ -48,13 +48,39 @@ async function requireUser(req: Request): Promise<{ id: string; email?: string }
 // ---------- Provider adapters ----------
 type ProviderResult = { ok: boolean; recoverable: boolean; status: number; body: any; error?: string; reference?: string };
 
-function isSuccessBody(b: any): boolean {
+// SMEAPI success parser — SMEAPI returns { Status: "successful", ... }
+function parseSmeapiSuccess(b: any): boolean {
   if (!b || typeof b !== 'object') return false;
   const s = String(b.Status ?? b.status ?? b.response_code ?? b.status_code ?? '').toLowerCase().trim();
   if (['successful', 'success', 'completed', 'complete', '200', '000'].includes(s)) return true;
   if (b.success === true || b.successful === true) return true;
   const msg = String(b.message ?? b.msg ?? '').toLowerCase();
   return msg.includes('successful') || msg.includes('completed');
+}
+
+// SMEPlug success parser — per SMEPlug docs, purchase endpoints return either:
+//   { "status": true,  "msg": "Data purchase successful", "reference": "..." }
+//   { "status": "success", "data": { "reference": "..." } }
+// Failures come back as HTTP 200 with { "status": false, "msg": "..." } or
+//   { "status": "failed", "msg": "..." }. Never trust HTTP status alone.
+function parseSmeplugSuccess(b: any): boolean {
+  if (!b || typeof b !== 'object') return false;
+  const raw = b.status ?? b.Status;
+  if (raw === true) return true;
+  if (raw === false) return false;
+  const s = String(raw ?? '').toLowerCase().trim();
+  if (['success', 'successful', 'completed', 'complete', 'true', '1'].includes(s)) return true;
+  if (['failed', 'failure', 'error', 'false', '0'].includes(s)) return false;
+  if (b.success === true) return true;
+  if (b.success === false) return false;
+  // Fallback: look for explicit success wording in message.
+  const msg = String(b.msg ?? b.message ?? '').toLowerCase();
+  if (/(successful|completed|processed)/.test(msg)) return true;
+  return false;
+}
+
+function smeplugReference(b: any): string | undefined {
+  return b?.reference || b?.data?.reference || b?.data?.ident || b?.ident || b?.transaction_id || b?.data?.transaction_id;
 }
 
 // Recoverable = provider-side outage / rate-limit / network — safe to retry elsewhere.
