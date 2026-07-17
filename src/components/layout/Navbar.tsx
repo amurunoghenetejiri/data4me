@@ -52,7 +52,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-      <div className="container flex h-16 items-center gap-4">
+      <div className="container flex h-16 items-center gap-2 sm:gap-4 min-w-0">
         <Logo />
 
         <nav className="hidden lg:flex items-center gap-1 ml-4">
@@ -77,7 +77,7 @@ export function Navbar() {
           <Input placeholder="Search plans, transactions…" className="pl-9 bg-muted/40 border-transparent focus-visible:bg-background" />
         </div>
 
-        <div className="flex items-center gap-2 ml-auto md:ml-0">
+        <div className="flex items-center gap-1 sm:gap-2 ml-auto md:ml-0 shrink-0">
           {user && (
             <div className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-accent text-accent-foreground text-sm font-medium">
               <Wallet className="h-4 w-4" />
