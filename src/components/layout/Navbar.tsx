@@ -77,7 +77,7 @@ export function Navbar() {
           <Input placeholder="Search plans, transactions…" className="pl-9 bg-muted/40 border-transparent focus-visible:bg-background" />
         </div>
 
-        <div className="flex items-center gap-2 ml-auto md:ml-0">
+        <div className="flex items-center gap-1 sm:gap-2 ml-auto md:ml-0 shrink-0">
           {user && (
             <div className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-accent text-accent-foreground text-sm font-medium">
               <Wallet className="h-4 w-4" />
