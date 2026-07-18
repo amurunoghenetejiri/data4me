@@ -22,10 +22,17 @@ export default function AdminDeposits() {
     },
   });
 
+  async function notifyTgAction(id: string, status: "approved" | "rejected" | "cancelled") {
+    try {
+      await supabase.functions.invoke("telegram-notify", { body: { action: "funding_admin_action", funding_id: id, status } });
+    } catch { /* noop */ }
+  }
+
   async function approve(r: any) {
     const { error } = await supabase.rpc("approve_funding", { _id: r.id, _remark: null });
     if (error) return toast.error(error.message);
     toast.success(`Credited ${fmtNaira(r.amount)} to @${r.profile?.username}`);
+    notifyTgAction(r.id, "approved");
     qc.invalidateQueries({ queryKey: ["admin"] });
     refetch();
   }
@@ -36,6 +43,7 @@ export default function AdminDeposits() {
     const { error } = await supabase.rpc("reject_funding", { _id: r.id, _remark: reason });
     if (error) return toast.error(error.message);
     toast.info("Rejected and user notified");
+    notifyTgAction(r.id, "rejected");
     refetch();
   }
 
@@ -44,6 +52,7 @@ export default function AdminDeposits() {
     const { error } = await supabase.rpc("cancel_funding", { _id: r.id, _remark: "Cancelled by admin" });
     if (error) return toast.error(error.message);
     toast.info("Cancelled");
+    notifyTgAction(r.id, "cancelled");
     refetch();
   }
 
