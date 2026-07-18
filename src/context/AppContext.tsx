@@ -302,6 +302,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         },
       });
       if (error) throw error;
+      // Telegram notification for new registration (best-effort)
+      try {
+        const { device, os } = parseUserAgent();
+        const ip = await getClientIp();
+        notifyTelegram("New User Registered", "🆕", {
+          "Event Type": "user_registered",
+          "Full Name": name,
+          Username: "@" + username.toLowerCase(),
+          Email: email,
+          Phone: phone,
+          "User ID": data.user?.id || "-",
+          "Registered At": new Date().toISOString(),
+          Device: device, OS: os, IP: ip,
+        });
+      } catch { /* noop */ }
       // If a session is returned, email confirmation is disabled → user logged in immediately
       return { needsOtp: !data.session };
     },
