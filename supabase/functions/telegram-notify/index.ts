@@ -83,6 +83,68 @@ Deno.serve(async (req) => {
       return json(r)
     }
 
+    // Funding submitted — send rich card with receipt + inline buttons to all admin chats.
+    if (action === 'funding_submitted') {
+      if (!userId) return json({ error: 'Unauthorized' }, 401)
+      const fundingId = String(body.funding_id || '')
+      if (!fundingId) return json({ error: 'funding_id required' }, 400)
+      const { data: info, error: infoErr } = await svc.rpc('tg_get_funding_info', { _id: fundingId })
+      if (infoErr || !info) return json({ error: infoErr?.message || 'Not found' }, 400)
+      // Verify caller owns the request
+      if (info.user_id !== userId) return json({ error: 'Forbidden' }, 403)
+
+      const publicSite = Deno.env.get('PUBLIC_SITE_URL') || 'https://data4me.lovable.app'
+      let receiptLink = info.receipt_url as string | null
+      if (receiptLink && !/^https?:\/\//i.test(receiptLink)) {
+        const { data: signed } = await svc.storage.from('receipts').createSignedUrl(receiptLink, 60 * 60 * 24 * 7)
+        receiptLink = signed?.signedUrl || null
+      }
+
+      const caption = formatTelegramMessage('New Wallet Funding Request', '💰', {
+        'Full Name': info.full_name,
+        Username: info.username ? '@' + info.username : null,
+        Email: info.email,
+        Phone: info.phone,
+        'User ID': info.user_id,
+        Amount: '₦' + Number(info.amount).toLocaleString(),
+        'Transaction ID': info.reference,
+        'Payment Method': info.bank || info.provider,
+        Status: (info.status || 'pending').toUpperCase(),
+        'Wallet Balance': '₦' + Number(info.wallet_balance).toLocaleString(),
+        Submitted: new Date(info.created_at).toISOString(),
+      })
+      const kb: InlineKeyboard = [
+        [
+          { text: '✅ Approve', callback_data: `fund:approve:${info.id}` },
+          { text: '❌ Reject', callback_data: `fund:reject:${info.id}` },
+        ],
+        [
+          { text: '🚫 Cancel', callback_data: `fund:cancel:${info.id}` },
+        ],
+        [
+          { text: '👤 View User', url: `${publicSite}/admin/users?u=${info.user_id}` },
+          { text: '📜 View Transaction', url: `${publicSite}/admin/deposits?ref=${encodeURIComponent(info.reference || '')}` },
+        ],
+      ]
+
+      let result: { ok: boolean; sent: number; results: Array<{ chat_id: string; message_id: number }>; error?: string }
+      if (receiptLink && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(receiptLink)) {
+        result = await sendTelegramPhoto(receiptLink, caption, undefined, kb)
+      } else {
+        const withLink = receiptLink ? caption + `\n\n<a href="${receiptLink}">📎 Open Receipt</a>` : caption
+        const r = await sendTelegramMessage(withLink, undefined, kb)
+        result = { ok: r.ok, sent: r.sent, results: r.results || [], error: r.error }
+      }
+      // Persist message refs for later editing
+      if (result.results?.length) {
+        await svc.from('telegram_message_refs').insert(
+          result.results.map((m) => ({ funding_id: info.id, chat_id: m.chat_id, message_id: m.message_id, kind: receiptLink && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(receiptLink) ? 'photo' : 'text' })),
+        )
+      }
+      return json(result)
+    }
+
+
     // Admin-only actions below
     if (!isAdmin) return json({ error: 'Forbidden' }, 403)
 
