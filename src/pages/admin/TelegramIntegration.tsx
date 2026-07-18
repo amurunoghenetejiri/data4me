@@ -142,6 +142,15 @@ export default function AdminTelegramIntegration() {
     toast.success(`Test message sent to ${data.sent} chat(s)`);
   }
 
+  async function registerWebhook() {
+    const { data, error } = await invokeFn({ action: "set_webhook" });
+    if (error || !data?.ok) {
+      toast.error(data?.result?.description || error?.message || "Webhook registration failed");
+      return;
+    }
+    toast.success("Webhook registered — inline buttons are live");
+  }
+
 
   return (
     <div>
