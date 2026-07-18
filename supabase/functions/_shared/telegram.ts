@@ -61,8 +61,15 @@ async function tgFetch(botToken: string, method: string, body: unknown) {
   return { ok: res.ok && json?.ok === true, status: res.status, json }
 }
 
+export interface InlineButton { text: string; callback_data?: string; url?: string }
+export type InlineKeyboard = InlineButton[][]
+
 // Send a Telegram HTML message with automatic retry. Never throws.
-export async function sendTelegramMessage(text: string, overrideChatId?: string): Promise<{ ok: boolean; error?: string; sent: number; details?: any }> {
+export async function sendTelegramMessage(
+  text: string,
+  overrideChatId?: string,
+  inline_keyboard?: InlineKeyboard,
+): Promise<{ ok: boolean; error?: string; sent: number; details?: any; results?: Array<{ chat_id: string; message_id: number }> }> {
   try {
     const cfg = await getTelegramConfig()
     if (!cfg.enabled) return { ok: false, error: 'Telegram disabled', sent: 0 }
@@ -72,28 +79,86 @@ export async function sendTelegramMessage(text: string, overrideChatId?: string)
     let sent = 0
     let lastError = ''
     let lastDetails: any = null
+    const results: Array<{ chat_id: string; message_id: number }> = []
     for (const chatId of targets) {
       let attempt = 0
       while (attempt < 3) {
-        const r = await tgFetch(cfg.botToken, 'sendMessage', {
-          chat_id: chatId,
-          text,
-          parse_mode: 'HTML',
-          disable_web_page_preview: true,
-        })
-        if (r.ok) { sent++; break }
+        const body: any = { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true }
+        if (inline_keyboard) body.reply_markup = { inline_keyboard }
+        const r = await tgFetch(cfg.botToken, 'sendMessage', body)
+        if (r.ok) {
+          sent++
+          const mid = r.json?.result?.message_id
+          if (mid) results.push({ chat_id: chatId, message_id: mid })
+          break
+        }
         lastError = r.json?.description || `HTTP ${r.status}`
         lastDetails = r.json
-        // Do not retry on 4xx client errors (chat not found, bot blocked, etc.)
         if (r.status >= 400 && r.status < 500) break
         attempt++
         if (attempt < 3) await new Promise((r) => setTimeout(r, 400 * attempt))
       }
     }
-    return { ok: sent > 0, error: sent === 0 ? lastError : undefined, sent, details: lastDetails }
+    return { ok: sent > 0, error: sent === 0 ? lastError : undefined, sent, details: lastDetails, results }
   } catch (e) {
     return { ok: false, error: String((e as Error).message || e), sent: 0 }
   }
+}
+
+// Send a photo URL with HTML caption and optional inline keyboard.
+export async function sendTelegramPhoto(
+  photoUrl: string,
+  caption: string,
+  overrideChatId?: string,
+  inline_keyboard?: InlineKeyboard,
+): Promise<{ ok: boolean; error?: string; sent: number; results: Array<{ chat_id: string; message_id: number }> }> {
+  const cfg = await getTelegramConfig()
+  if (!cfg.enabled || !cfg.botToken) return { ok: false, error: 'Telegram disabled/no token', sent: 0, results: [] }
+  const targets = overrideChatId ? [overrideChatId.trim()] : cfg.chatIds
+  const results: Array<{ chat_id: string; message_id: number }> = []
+  let sent = 0
+  let lastError = ''
+  for (const chatId of targets) {
+    const body: any = { chat_id: chatId, photo: photoUrl, caption, parse_mode: 'HTML' }
+    if (inline_keyboard) body.reply_markup = { inline_keyboard }
+    const r = await tgFetch(cfg.botToken, 'sendPhoto', body)
+    if (r.ok) {
+      sent++
+      const mid = r.json?.result?.message_id
+      if (mid) results.push({ chat_id: chatId, message_id: mid })
+    } else {
+      lastError = r.json?.description || `HTTP ${r.status}`
+    }
+  }
+  return { ok: sent > 0, error: sent === 0 ? lastError : undefined, sent, results }
+}
+
+export async function editTelegramCaption(chatId: string, messageId: number, caption: string, inline_keyboard?: InlineKeyboard) {
+  const cfg = await getTelegramConfig()
+  if (!cfg.botToken) return { ok: false }
+  const body: any = { chat_id: chatId, message_id: messageId, caption, parse_mode: 'HTML' }
+  body.reply_markup = { inline_keyboard: inline_keyboard || [] }
+  return await tgFetch(cfg.botToken, 'editMessageCaption', body)
+}
+
+export async function editTelegramText(chatId: string, messageId: number, text: string, inline_keyboard?: InlineKeyboard) {
+  const cfg = await getTelegramConfig()
+  if (!cfg.botToken) return { ok: false }
+  const body: any = { chat_id: chatId, message_id: messageId, text, parse_mode: 'HTML', disable_web_page_preview: true }
+  body.reply_markup = { inline_keyboard: inline_keyboard || [] }
+  return await tgFetch(cfg.botToken, 'editMessageText', body)
+}
+
+export async function answerCallbackQuery(callback_query_id: string, text?: string, show_alert = false) {
+  const cfg = await getTelegramConfig()
+  if (!cfg.botToken) return { ok: false }
+  return await tgFetch(cfg.botToken, 'answerCallbackQuery', { callback_query_id, text, show_alert })
+}
+
+export function getTelegramAdminIds(): string[] {
+  const raw = (Deno.env.get('TELEGRAM_ADMIN_IDS') || '').trim()
+  if (!raw) return []
+  return raw.split(',').map((s) => s.trim()).filter(Boolean)
 }
 
 // Fire-and-forget: never blocks caller, never throws.
