@@ -265,6 +265,19 @@ Deno.serve(async (req) => {
       return json({ ok: true })
     }
 
+    if (action === 'set_webhook') {
+      const cfg = await getTelegramConfig()
+      if (!cfg.botToken) return json({ ok: false, error: 'Bot token not configured' }, 400)
+      const webhookUrl = `${supaUrl}/functions/v1/telegram-webhook`
+      const r = await fetch(`https://api.telegram.org/bot${cfg.botToken}/setWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: webhookUrl, allowed_updates: ['callback_query'] }),
+      })
+      const j = await r.json().catch(() => ({}))
+      return json({ ok: !!j?.ok, webhook_url: webhookUrl, result: j })
+    }
+
     return json({ error: 'Unknown action' }, 400)
   } catch (e) {
     return json({ error: String((e as Error).message || e) }, 500)
