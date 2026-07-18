@@ -7,11 +7,15 @@
 //   POST { action:'notify', title, emoji, rows, audience } -> send a formatted message (auth required)
 import { createClient } from 'npm:@supabase/supabase-js@2.45.0'
 import {
+  editTelegramCaption,
+  editTelegramText,
   formatTelegramMessage,
   getTelegramConfig,
   sendTelegramMessage,
+  sendTelegramPhoto,
   testTelegramConnection,
   verifyChatIdViaUpdates,
+  type InlineKeyboard,
 } from '../_shared/telegram.ts'
 
 const corsHeaders = {
@@ -81,8 +85,118 @@ Deno.serve(async (req) => {
       return json(r)
     }
 
+    // Funding submitted — send rich card with receipt + inline buttons to all admin chats.
+    if (action === 'funding_submitted') {
+      if (!userId) return json({ error: 'Unauthorized' }, 401)
+      const fundingId = String(body.funding_id || '')
+      if (!fundingId) return json({ error: 'funding_id required' }, 400)
+      const { data: info, error: infoErr } = await svc.rpc('tg_get_funding_info', { _id: fundingId })
+      if (infoErr || !info) return json({ error: infoErr?.message || 'Not found' }, 400)
+      // Verify caller owns the request
+      if (info.user_id !== userId) return json({ error: 'Forbidden' }, 403)
+
+      const publicSite = Deno.env.get('PUBLIC_SITE_URL') || 'https://data4me.lovable.app'
+      let receiptLink = info.receipt_url as string | null
+      if (receiptLink && !/^https?:\/\//i.test(receiptLink)) {
+        const { data: signed } = await svc.storage.from('receipts').createSignedUrl(receiptLink, 60 * 60 * 24 * 7)
+        receiptLink = signed?.signedUrl || null
+      }
+
+      const caption = formatTelegramMessage('New Wallet Funding Request', '💰', {
+        'Full Name': info.full_name,
+        Username: info.username ? '@' + info.username : null,
+        Email: info.email,
+        Phone: info.phone,
+        'User ID': info.user_id,
+        Amount: '₦' + Number(info.amount).toLocaleString(),
+        'Transaction ID': info.reference,
+        'Payment Method': info.bank || info.provider,
+        Status: (info.status || 'pending').toUpperCase(),
+        'Wallet Balance': '₦' + Number(info.wallet_balance).toLocaleString(),
+        Submitted: new Date(info.created_at).toISOString(),
+      })
+      const kb: InlineKeyboard = [
+        [
+          { text: '✅ Approve', callback_data: `fund:approve:${info.id}` },
+          { text: '❌ Reject', callback_data: `fund:reject:${info.id}` },
+        ],
+        [
+          { text: '🚫 Cancel', callback_data: `fund:cancel:${info.id}` },
+        ],
+        [
+          { text: '👤 View User', url: `${publicSite}/admin/users?u=${info.user_id}` },
+          { text: '📜 View Transaction', url: `${publicSite}/admin/deposits?ref=${encodeURIComponent(info.reference || '')}` },
+        ],
+      ]
+
+      let result: { ok: boolean; sent: number; results: Array<{ chat_id: string; message_id: number }>; error?: string }
+      if (receiptLink && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(receiptLink)) {
+        result = await sendTelegramPhoto(receiptLink, caption, undefined, kb)
+      } else {
+        const withLink = receiptLink ? caption + `\n\n<a href="${receiptLink}">📎 Open Receipt</a>` : caption
+        const r = await sendTelegramMessage(withLink, undefined, kb)
+        result = { ok: r.ok, sent: r.sent, results: r.results || [], error: r.error }
+      }
+      // Persist message refs for later editing
+      if (result.results?.length) {
+        await svc.from('telegram_message_refs').insert(
+          result.results.map((m) => ({ funding_id: info.id, chat_id: m.chat_id, message_id: m.message_id, kind: receiptLink && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(receiptLink) ? 'photo' : 'text' })),
+        )
+      }
+      return json(result)
+    }
+
+
     // Admin-only actions below
     if (!isAdmin) return json({ error: 'Forbidden' }, 403)
+
+    // Edit prior Telegram funding messages after a web-dashboard action.
+    if (action === 'funding_admin_action') {
+      const fundingId = String(body.funding_id || '')
+      const status = String(body.status || '')
+      if (!fundingId || !['approved', 'rejected', 'cancelled'].includes(status)) {
+        return json({ error: 'Invalid params' }, 400)
+      }
+      const { data: info } = await svc.rpc('tg_get_funding_info', { _id: fundingId })
+      const { data: refs } = await svc.from('telegram_message_refs').select('*').eq('funding_id', fundingId)
+      if (!info || !refs) return json({ ok: true, edited: 0 })
+      const statusEmoji = status === 'approved' ? '✅' : status === 'rejected' ? '❌' : '🚫'
+      // Resolve acting admin name from profiles table
+      let adminLabel = 'Web Admin'
+      try {
+        const { data: prof } = await svc.from('profiles').select('full_name, username, email').eq('id', userId).maybeSingle()
+        if (prof) adminLabel = (prof.full_name || prof.username || prof.email || 'Admin') + ' (web)'
+      } catch { /* ignore */ }
+      const caption = formatTelegramMessage(`Funding ${status.toUpperCase()}`, statusEmoji, {
+        'Full Name': info.full_name,
+        Username: info.username ? '@' + info.username : null,
+        Email: info.email,
+        'User ID': info.user_id,
+        Amount: '₦' + Number(info.amount).toLocaleString(),
+        'Transaction ID': info.reference,
+        'Payment Method': info.bank || info.provider,
+        Status: status.toUpperCase(),
+        'Wallet Balance': '₦' + Number(info.wallet_balance).toLocaleString(),
+        'Action By': adminLabel,
+        Remark: info.admin_remark,
+        'Action At': new Date().toISOString(),
+      })
+      const publicSite = Deno.env.get('PUBLIC_SITE_URL') || 'https://data4me.lovable.app'
+      const kb = [[
+        { text: '👤 View User', url: `${publicSite}/admin/users?u=${info.user_id}` },
+        { text: '📜 View Transaction', url: `${publicSite}/admin/deposits?ref=${encodeURIComponent(info.reference || '')}` },
+      ]]
+      let edited = 0
+      for (const r of refs as any[]) {
+        try {
+          if (r.kind === 'photo') await editTelegramCaption(r.chat_id, r.message_id, caption, kb)
+          else await editTelegramText(r.chat_id, r.message_id, caption, kb)
+          edited++
+        } catch { /* ignore */ }
+      }
+      return json({ ok: true, edited })
+    }
+
 
     if (action === 'test') {
       const r = await testTelegramConnection(
@@ -149,6 +263,19 @@ Deno.serve(async (req) => {
         })
       } catch { /* ignore */ }
       return json({ ok: true })
+    }
+
+    if (action === 'set_webhook') {
+      const cfg = await getTelegramConfig()
+      if (!cfg.botToken) return json({ ok: false, error: 'Bot token not configured' }, 400)
+      const webhookUrl = `${supaUrl}/functions/v1/telegram-webhook`
+      const r = await fetch(`https://api.telegram.org/bot${cfg.botToken}/setWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: webhookUrl, allowed_updates: ['callback_query'] }),
+      })
+      const j = await r.json().catch(() => ({}))
+      return json({ ok: !!j?.ok, webhook_url: webhookUrl, result: j })
     }
 
     return json({ error: 'Unknown action' }, 400)

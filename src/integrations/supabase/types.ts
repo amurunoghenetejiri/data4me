@@ -892,6 +892,41 @@ export type Database = {
         }
         Relationships: []
       }
+      telegram_message_refs: {
+        Row: {
+          chat_id: string
+          created_at: string
+          funding_id: string
+          id: string
+          kind: string
+          message_id: number
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          funding_id: string
+          id?: string
+          kind?: string
+          message_id: number
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          funding_id?: string
+          id?: string
+          kind?: string
+          message_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "telegram_message_refs_funding_id_fkey"
+            columns: ["funding_id"]
+            isOneToOne: false
+            referencedRelation: "funding_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
@@ -1290,6 +1325,17 @@ export type Database = {
           _user_id: string
         }
         Returns: undefined
+      }
+      tg_get_funding_info: { Args: { _id: string }; Returns: Json }
+      tg_process_funding: {
+        Args: {
+          _action: string
+          _id: string
+          _remark?: string
+          _telegram_admin: string
+          _telegram_admin_name?: string
+        }
+        Returns: Json
       }
       wallet_available: { Args: { _user_id: string }; Returns: number }
     }

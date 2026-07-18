@@ -142,6 +142,15 @@ export default function AdminTelegramIntegration() {
     toast.success(`Test message sent to ${data.sent} chat(s)`);
   }
 
+  async function registerWebhook() {
+    const { data, error } = await invokeFn({ action: "set_webhook" });
+    if (error || !data?.ok) {
+      toast.error(data?.result?.description || error?.message || "Webhook registration failed");
+      return;
+    }
+    toast.success("Webhook registered — inline buttons are live");
+  }
+
 
   return (
     <div>
@@ -227,6 +236,12 @@ export default function AdminTelegramIntegration() {
                 >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Send Test Message
+                </button>
+                <button
+                  onClick={registerWebhook}
+                  className="px-4 h-10 rounded-lg bg-violet-600/90 text-white text-sm font-semibold inline-flex items-center gap-2"
+                >
+                  <Zap className="h-4 w-4" /> Register Webhook
                 </button>
               </div>
               <p className="text-[11px] text-slate-500 mt-3">

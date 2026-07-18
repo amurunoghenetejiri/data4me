@@ -302,6 +302,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         },
       });
       if (error) throw error;
+      // Telegram notification for new registration (best-effort)
+      try {
+        const { device, os } = parseUserAgent();
+        const ip = await getClientIp();
+        notifyTelegram("New User Registered", "🆕", {
+          "Event Type": "user_registered",
+          "Full Name": name,
+          Username: "@" + username.toLowerCase(),
+          Email: email,
+          Phone: phone,
+          "User ID": data.user?.id || "-",
+          "Registered At": new Date().toISOString(),
+          Device: device, OS: os, IP: ip,
+        });
+      } catch { /* noop */ }
       // If a session is returned, email confirmation is disabled → user logged in immediately
       return { needsOtp: !data.session };
     },
@@ -395,10 +410,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (up.error) throw new Error(up.error.message);
       const { data: signed } = await supabase.storage.from("receipts").createSignedUrl(path, 60 * 60 * 24 * 30);
       const receipt_url = signed?.signedUrl || path;
-      const { error } = await supabase.from("funding_requests").insert({
+      const { data: inserted, error } = await supabase.from("funding_requests").insert({
         user_id: user.id, amount, bank, reference, provider: "manual", status: "pending", receipt_url,
-      } as any);
+      } as any).select("id").single();
       if (error) throw new Error(error.message);
+      // Rich Telegram admin notification with inline action buttons (best-effort)
+      try {
+        supabase.functions.invoke("telegram-notify", {
+          body: { action: "funding_submitted", funding_id: inserted?.id },
+        }).catch(() => {});
+      } catch { /* noop */ }
       // Update local mirror for immediate UI
       setFundingRequests((cur) => [{ id: reference, username: user.username, amount, bank, receiptName: receiptFile.name, receiptDataUrl: receipt_url, date: new Date().toISOString(), status: "pending" }, ...cur]);
     },
