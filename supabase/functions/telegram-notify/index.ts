@@ -7,6 +7,8 @@
 //   POST { action:'notify', title, emoji, rows, audience } -> send a formatted message (auth required)
 import { createClient } from 'npm:@supabase/supabase-js@2.45.0'
 import {
+  editTelegramCaption,
+  editTelegramText,
   formatTelegramMessage,
   getTelegramConfig,
   sendTelegramMessage,
