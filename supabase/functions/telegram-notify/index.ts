@@ -10,8 +10,10 @@ import {
   formatTelegramMessage,
   getTelegramConfig,
   sendTelegramMessage,
+  sendTelegramPhoto,
   testTelegramConnection,
   verifyChatIdViaUpdates,
+  type InlineKeyboard,
 } from '../_shared/telegram.ts'
 
 const corsHeaders = {
