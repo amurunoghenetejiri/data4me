@@ -150,6 +150,54 @@ Deno.serve(async (req) => {
     // Admin-only actions below
     if (!isAdmin) return json({ error: 'Forbidden' }, 403)
 
+    // Edit prior Telegram funding messages after a web-dashboard action.
+    if (action === 'funding_admin_action') {
+      const fundingId = String(body.funding_id || '')
+      const status = String(body.status || '')
+      if (!fundingId || !['approved', 'rejected', 'cancelled'].includes(status)) {
+        return json({ error: 'Invalid params' }, 400)
+      }
+      const { data: info } = await svc.rpc('tg_get_funding_info', { _id: fundingId })
+      const { data: refs } = await svc.from('telegram_message_refs').select('*').eq('funding_id', fundingId)
+      if (!info || !refs) return json({ ok: true, edited: 0 })
+      const statusEmoji = status === 'approved' ? '✅' : status === 'rejected' ? '❌' : '🚫'
+      // Resolve acting admin name from profiles table
+      let adminLabel = 'Web Admin'
+      try {
+        const { data: prof } = await svc.from('profiles').select('full_name, username, email').eq('id', userId).maybeSingle()
+        if (prof) adminLabel = (prof.full_name || prof.username || prof.email || 'Admin') + ' (web)'
+      } catch { /* ignore */ }
+      const caption = formatTelegramMessage(`Funding ${status.toUpperCase()}`, statusEmoji, {
+        'Full Name': info.full_name,
+        Username: info.username ? '@' + info.username : null,
+        Email: info.email,
+        'User ID': info.user_id,
+        Amount: '₦' + Number(info.amount).toLocaleString(),
+        'Transaction ID': info.reference,
+        'Payment Method': info.bank || info.provider,
+        Status: status.toUpperCase(),
+        'Wallet Balance': '₦' + Number(info.wallet_balance).toLocaleString(),
+        'Action By': adminLabel,
+        Remark: info.admin_remark,
+        'Action At': new Date().toISOString(),
+      })
+      const publicSite = Deno.env.get('PUBLIC_SITE_URL') || 'https://data4me.lovable.app'
+      const kb = [[
+        { text: '👤 View User', url: `${publicSite}/admin/users?u=${info.user_id}` },
+        { text: '📜 View Transaction', url: `${publicSite}/admin/deposits?ref=${encodeURIComponent(info.reference || '')}` },
+      ]]
+      let edited = 0
+      for (const r of refs as any[]) {
+        try {
+          if (r.kind === 'photo') await editTelegramCaption(r.chat_id, r.message_id, caption, kb)
+          else await editTelegramText(r.chat_id, r.message_id, caption, kb)
+          edited++
+        } catch { /* ignore */ }
+      }
+      return json({ ok: true, edited })
+    }
+
+
     if (action === 'test') {
       const r = await testTelegramConnection(
         typeof body.botToken === 'string' ? body.botToken.trim() : undefined,
