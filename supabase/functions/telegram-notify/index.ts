@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
       // Verify caller owns the request
       if (info.user_id !== userId) return json({ error: 'Forbidden' }, 403)
 
-      const publicSite = Deno.env.get('PUBLIC_SITE_URL') || 'https://data4me.lovable.app'
+      const publicSite = Deno.env.get('PUBLIC_SITE_URL') || 'https://data4me.name.ng'
       let receiptLink = info.receipt_url as string | null
       if (receiptLink && !/^https?:\/\//i.test(receiptLink)) {
         const { data: signed } = await svc.storage.from('receipts').createSignedUrl(receiptLink, 60 * 60 * 24 * 7)
