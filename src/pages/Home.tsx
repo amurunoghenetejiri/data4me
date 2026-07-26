@@ -15,7 +15,7 @@ export default function Home() {
         path="/"
       />
       {/* HERO */}
-      <section className="relative overflow-hidden bg-gradient-hero">
+      <section className="relative overflow-hidden bg-gradient-hero pt-16">
         <div className="absolute inset-0 -z-0 [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_70%)]">
           <div className="absolute top-20 left-10 h-72 w-72 rounded-full bg-primary/20 blur-3xl animate-float" />
           <div className="absolute bottom-10 right-10 h-96 w-96 rounded-full bg-info/20 blur-3xl animate-float" />
