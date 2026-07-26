@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
         Remark: info.admin_remark,
         'Action At': new Date().toISOString(),
       })
-      const publicSite = Deno.env.get('PUBLIC_SITE_URL') || 'https://data4me.lovable.app'
+      const publicSite = Deno.env.get('PUBLIC_SITE_URL') || 'https://data4me.name.ng'
       const kb = [[
         { text: '👤 View User', url: `${publicSite}/admin/users?u=${info.user_id}` },
         { text: '📜 View Transaction', url: `${publicSite}/admin/deposits?ref=${encodeURIComponent(info.reference || '')}` },
