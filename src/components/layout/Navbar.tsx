@@ -51,8 +51,8 @@ export function Navbar() {
   const balanceLabel = hideBalance ? "₦••••••" : `₦${wallet.toLocaleString()}`;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-      <div className="container flex h-16 items-center gap-2 sm:gap-4 min-w-0">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur-xl">
+      <div className="container flex h-14 items-center gap-1 px-2 sm:px-4 min-w-0">
         <Logo />
 
         <nav className="hidden lg:flex items-center gap-1 ml-4">
