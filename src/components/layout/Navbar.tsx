@@ -95,8 +95,8 @@ export function Navbar() {
           <ThemeToggle />
 
           <DropdownMenu>
-            <DropdownMenuTrigger className="relative h-10 w-10 grid place-items-center rounded-full hover:bg-muted">
-              <Bell className="h-5 w-5" />
+            <DropdownMenuTrigger className="relative h-8 w-8 sm:h-10 sm:w-10 grid place-items-center rounded-full hover:bg-muted">
+              <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
               {unread > 0 && <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
@@ -121,7 +121,7 @@ export function Navbar() {
 
           {user ? (
             <DropdownMenu>
-              <DropdownMenuTrigger className="h-10 w-10 rounded-full overflow-hidden bg-gradient-primary text-primary-foreground font-semibold grid place-items-center shadow-md ring-2 ring-background">
+              <DropdownMenuTrigger className="h-8 w-8 sm:h-10 sm:w-10 rounded-full overflow-hidden bg-gradient-primary text-primary-foreground font-semibold grid place-items-center shadow-md ring-2 ring-background">
                 <img src={getAvatar(user.avatarId).url} alt="User profile avatar" className="h-full w-full object-cover" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
