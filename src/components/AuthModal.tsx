@@ -218,7 +218,7 @@ export function AuthModal() {
 
   return (
     <Dialog open={!!authOpen} onOpenChange={(o) => !o && closeAuth()}>
-      <DialogContent className="sm:max-w-md max-h-[92vh] overflow-y-auto p-5 sm:p-6">
+      <DialogContent className="sm:max-w-md max-h-[92vh] overflow-y-auto overflow-x-visible p-5 sm:p-6">
         <DialogHeader>
           <div className="flex items-center gap-1">
             <BrandMark size={56} />
