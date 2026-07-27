@@ -269,18 +269,38 @@ export function AuthModal() {
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <Label>Bank name</Label>
-                  <Select value={bank.bank_name} onValueChange={(v) => { setBank({ ...bank, bank_name: v }); setVerified(null); }}>
-                    <SelectTrigger><SelectValue placeholder="Choose bank" /></SelectTrigger>
-                    <SelectContent
-  position="popper"
-  side="bottom"
-  align="start"
-  sideOffset={5}
-  className="max-h-[80vh] w-[var(--radix-select-trigger-width)] overflow-y-auto"
->
-                      {NIGERIAN_BANKS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Input
+  placeholder="Search bank..."
+  value={bank.bank_name}
+  onChange={(e) => {
+    setBank({
+      ...bank,
+      bank_name: e.target.value,
+    });
+    setVerified(null);
+  }}
+/>
+
+<div className="max-h-48 overflow-y-auto rounded-md border">
+  {NIGERIAN_BANKS.filter((b) =>
+    b.toLowerCase().includes(bank.bank_name.toLowerCase())
+  ).map((b) => (
+    <button
+      key={b}
+      type="button"
+      onClick={() => {
+        setBank({
+          ...bank,
+          bank_name: b,
+        });
+        setVerified(null);
+      }}
+      className="block w-full text-left px-3 py-2 hover:bg-muted"
+    >
+      {b}
+    </button>
+  ))}
+</div>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Account number</Label>
