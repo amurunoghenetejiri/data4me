@@ -21,8 +21,8 @@ const NIGERIAN_BANKS = [
 
 export default function Wallet() {
   const { wallet, transactions, settings, user, openAuth, hideBalance, toggleHideBalance, submitFundingRequest, pushNotification, pendingFunding, refreshUser } = useApp();
-  const [amount, setAmount] = useState(2000);
-  const [psAmount, setPsAmount] = useState(2000);
+ const [amount, setAmount] = useState<number | "">("");
+const [psAmount, setPsAmount] = useState<number | "">("");
   const [psLoading, setPsLoading] = useState(false);
   const [bank, setBank] = useState<string>("Opay");
   const [receipt, setReceipt] = useState<File | null>(null);
@@ -179,11 +179,30 @@ export default function Wallet() {
             </div>
           </div>
           <Label className="mb-1 block text-xs">Amount (₦) — minimum ₦100</Label>
-          <Input type="number" min={100} value={amount} onChange={(e) => setAmount(Number(e.target.value) || 0)} />
+          <Input
+  type="number"
+  min={100}
+  placeholder="Type amount"
+  value={amount}
+  onChange={(e) =>
+    setAmount(e.target.value === "" ? "" : Number(e.target.value))
+  }
+/>
           <div className="grid grid-cols-3 gap-2 mt-3">
             {[500, 1000, 2000, 5000, 10000, 20000].map((a) => (
-              <button key={a} onClick={() => setAmount(a)} className={`text-sm rounded-lg py-2 border ${amount === a ? "border-primary bg-accent" : "border-border hover:bg-muted"}`}>₦{a.toLocaleString()}</button>
-            ))}
+  <button
+    key={a}
+    type="button"
+    onClick={() => setAmount(a)}
+    className={`text-sm rounded-lg py-2 border ${
+      amount === a
+        ? "border-primary bg-accent"
+        : "border-border hover:bg-muted"
+    }`}
+  >
+    ₦{a.toLocaleString()}
+  </button>
+))}
           </div>
           <Label className="mt-4 mb-1 block text-xs">Your bank</Label>
           <Select value={bank} onValueChange={setBank}>
@@ -267,11 +286,30 @@ export default function Wallet() {
             <div><h3 className="font-semibold text-lg">💳 Fund via Paystack</h3><p className="text-xs text-muted-foreground">Instant — wallet credited automatically</p></div>
           </div>
           <Label className="mb-1 block text-xs">Amount (₦) — minimum ₦100</Label>
-          <Input type="number" min={100} value={psAmount} onChange={(e) => setPsAmount(Number(e.target.value) || 0)} />
+          <Input
+  type="number"
+  min={100}
+  placeholder="Type amount"
+  value={psAmount}
+  onChange={(e) =>
+    setPsAmount(e.target.value === "" ? "" : Number(e.target.value))
+  }
+/>
           <div className="grid grid-cols-4 gap-2 mt-3">
             {[1000, 2000, 5000, 10000].map((a) => (
-              <button key={a} onClick={() => setPsAmount(a)} className={`text-xs rounded-lg py-2 border ${psAmount === a ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-muted"}`}>₦{a.toLocaleString()}</button>
-            ))}
+  <button
+    key={a}
+    type="button"
+    onClick={() => setPsAmount(a)}
+    className={`text-xs rounded-lg py-2 border ${
+      psAmount === a
+        ? "border-emerald-500 bg-emerald-500/10"
+        : "border-border hover:bg-muted"
+    }`}
+  >
+    ₦{a.toLocaleString()}
+  </button>
+))}
           </div>
           <Button onClick={payWithPaystack} disabled={psLoading} className="w-full mt-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 text-white">
             {psLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Initializing…</> : <>Pay ₦{psAmount.toLocaleString()} with Paystack</>}
