@@ -256,8 +256,8 @@ export function AuthModal() {
 
             {step === "account" && (
               <form onSubmit={submitAccount} className="space-y-3">
-                <div className="space-y-1.5"><Label>Full name</Label><Input name="name" defaultValue={acct.name} required placeholder="Ada Lovelace" /></div>
-                <div className="space-y-1.5"><Label>Username</Label><Input name="username" defaultValue={acct.username} required minLength={3} pattern="[a-zA-Z0-9_]+" placeholder="ada_l" /></div>
+                <div className="space-y-1.5"><Label>Full name</Label><Input name="name" defaultValue={acct.name} required placeholder="Araye David" /></div>
+                <div className="space-y-1.5"><Label>Username</Label><Input name="username" defaultValue={acct.username} required minLength={3} pattern="[a-zA-Z0-9_]+" placeholder="Frederick" /></div>
                 <div className="space-y-1.5"><Label>Email</Label><Input name="email" defaultValue={acct.email} type="email" required placeholder="you@example.com" /></div>
                 <div className="space-y-1.5"><Label>Phone number</Label><Input name="phone" defaultValue={acct.phone} type="tel" required pattern="[0-9+ ]{7,15}" placeholder="08012345678" /></div>
                 <div className="space-y-1.5"><Label>Password</Label><PasswordInput name="password" defaultValue={acct.password} required minLength={6} placeholder="At least 6 characters" /></div>
