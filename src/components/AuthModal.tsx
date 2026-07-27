@@ -237,7 +237,7 @@ export function AuthModal() {
 
           <TabsContent value="login" className="space-y-4 pt-4">
             <form onSubmit={handleLogin} className="space-y-3">
-              <div className="space-y-1.5"><Label>Email, phone or username</Label><Input name="identifier" required placeholder="you@example.com / 0801…" /></div>
+              <div className="space-y-1.5"><Label>Email, phone or username</Label><Input name="identifier" required placeholder="you@example.com / araye / 0801…" /></div>
               <div className="space-y-1.5"><Label>Password</Label><PasswordInput name="password" required placeholder="••••••••" /></div>
               {loginError && <div role="alert" className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2">{loginError}</div>}
               <div className="flex items-center justify-between text-xs">
@@ -247,7 +247,7 @@ export function AuthModal() {
               <Button type="submit" className="w-full" size="lg" disabled={loginBusy}>
                 {loginBusy ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Signing in…</> : "Login"}
               </Button>
-              <p className="text-[11px] text-muted-foreground text-center">User users are redirected to the user console automatically.</p>
+              <p className="text-[11px] text-muted-foreground text-center">users are redirected to the user console automatically.</p>
             </form>
           </TabsContent>
 
