@@ -281,26 +281,31 @@ export function AuthModal() {
   }}
 />
 
-<div className="max-h-48 overflow-y-auto rounded-md border">
-  {NIGERIAN_BANKS.filter((b) =>
+{bank.bank_name !== "" &&
+  NIGERIAN_BANKS.filter((b) =>
     b.toLowerCase().includes(bank.bank_name.toLowerCase())
-  ).map((b) => (
-    <button
-      key={b}
-      type="button"
-      onClick={() => {
-        setBank({
-          ...bank,
-          bank_name: b,
-        });
-        setVerified(null);
-      }}
-      className="block w-full text-left px-3 py-2 hover:bg-muted"
-    >
-      {b}
-    </button>
-  ))}
-</div>
+  ).length > 0 && (
+    <div className="max-h-48 overflow-y-auto rounded-md border bg-background mt-1">
+      {NIGERIAN_BANKS.filter((b) =>
+        b.toLowerCase().includes(bank.bank_name.toLowerCase())
+      ).map((b) => (
+        <button
+          key={b}
+          type="button"
+          onClick={() => {
+            setBank({
+              ...bank,
+              bank_name: b,
+            });
+            setVerified(null);
+          }}
+          className="block w-full px-3 py-2 text-left hover:bg-muted"
+        >
+          {b}
+        </button>
+      ))}
+    </div>
+)}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Account number</Label>
