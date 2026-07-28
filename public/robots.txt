@@ -8,4 +8,4 @@ Disallow: /settings
 Disallow: /profile
 Disallow: /reset-password
 
-Sitemap: https://data4me.lovable.app/sitemap.xml
+Sitemap: https://data4me.name.ng/sitemap.xml
