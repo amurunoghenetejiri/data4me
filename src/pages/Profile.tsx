@@ -27,6 +27,9 @@ export default function Profile() {
     { icon: AtSign, label: "Username", value: user.username },
     { icon: Mail, label: "Email address", value: user.email || "—" },
     { icon: Phone, label: "Phone number", value: user.phone || "—" },
+    { icon: WalletIcon, label: "Dedicated account", value: user.dedicatedAccountNumber
+        ? `\( {user.dedicatedAccountNumber} ( \){user.dedicatedBankName || "Paystack"})`
+        : "Generating…" },
     { icon: Gift, label: "Referral code", value: user.referralCode || "—" },
     { icon: Calendar, label: "Member since", value: user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—" },
   ];
