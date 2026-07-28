@@ -90,14 +90,23 @@ export default function Dashboard() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-3 mb-6">
-        {ACTIONS.map((a) => (
-          <Link key={a.to} to={a.to} className={cn("flex flex-col items-center justify-center gap-2 p-4 rounded-2xl shadow-card hover-lift transition", a.accent ? "bg-gradient-primary text-primary-foreground" : "bg-card")}>
-            <a.icon className="h-5 w-5" />
-            <span className="text-xs font-medium text-center">{a.label}</span>
-          </Link>
-        ))}
-      </div>
+      <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-9 gap-1.5 sm:gap-2 md:gap-3 mb-4 sm:mb-6">
+  {ACTIONS.map((a) => (
+    <Link
+      key={a.to}
+      to={a.to}
+      className={cn(
+        "flex flex-col items-center justify-center gap-1 sm:gap-1.5 md:gap-2 p-2 sm:p-3 md:p-4 rounded-xl sm:rounded-2xl shadow-card hover-lift transition",
+        a.accent ? "bg-gradient-primary text-primary-foreground" : "bg-card"
+      )}
+    >
+      <a.icon className="h-4 w-4 sm:h-5 sm:w-5" />
+      <span className="text-[10px] sm:text-xs font-medium text-center leading-tight">
+        {a.label}
+      </span>
+    </Link>
+  ))}
+</div>
 
       <Card className="p-6 shadow-card">
         <div className="flex items-center justify-between mb-4">
