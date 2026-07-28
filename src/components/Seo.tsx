@@ -1,6 +1,6 @@
 import { Helmet } from "react-helmet-async";
 
-const SITE_URL = "https://data4me.lovable.app";
+const SITE_URL = "https://data4me.name.ng";
 const DEFAULT_IMAGE = `${SITE_URL}/data4me-brand.png`;
 
 interface SeoProps {
