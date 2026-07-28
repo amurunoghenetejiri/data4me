@@ -252,12 +252,16 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     const { data: tx, error: cErr } = await svc.rpc('commit_wallet_hold', {
       _hold_id: holdId, _type: 'airtime',
       _description: `${network} airtime ₦${amount} to ${phone}`,
-      _meta: {
-        network, phone, product_amount: amount, charge: CHARGE,
-        provider: finalProvider, original_provider: providersOrder[0],
-        retry_count: attempts.length - 1, supplier_reference: finalResult.reference,
-        provider_response: finalResult.body,
-      },
+_meta: {
+  network, phone,
+  product_amount: amount,
+  cost_price: amount,
+  charge: CHARGE,
+  profit: CHARGE,
+  provider: finalProvider,
+  supplier_reference: finalResult.reference,
+  provider_response: finalResult.body,
+},
     });
     if (cErr) {
       await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: 'commit-failed' });
@@ -337,12 +341,18 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
   }
 
   if (finalResult?.ok) {
+    const costPrice = Number(plan.cost_price || 0);
+    const dataProfit = Math.max(0, sellingPrice - costPrice);
+
     const { data: tx, error: cErr } = await svc.rpc('commit_wallet_hold', {
       _hold_id: holdId, _type: 'data',
       _description: `${network} ${plan.data_size} / ${plan.validity} to ${phone}`,
       _meta: {
         plan_id: plan.id, network, phone,
-        product_amount: sellingPrice, charge: CHARGE,
+        product_amount: sellingPrice,
+        cost_price: costPrice,
+        charge: CHARGE,
+        profit: dataProfit,
         provider: finalProvider, original_provider: primaryProvider,
         provider_plan_id: finalProviderPlanId,
         retry_count: attempts.length - 1,
