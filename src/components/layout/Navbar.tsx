@@ -52,7 +52,7 @@ export function Navbar() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur-xl">
-      <div className="container flex h-14 items-center gap-1 px-2 sm:px-4 min-w-0">
+      <div className="container flex h-12 sm:h-14 md:h-16 items-center gap-1 px-2 sm:px-4 min-w-0">
         <Logo />
 
         <nav className="hidden lg:flex items-center gap-1 ml-4">
@@ -77,7 +77,7 @@ export function Navbar() {
           <Input placeholder="Search plans, transactions…" className="pl-9 bg-muted/40 border-transparent focus-visible:bg-background" />
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-2 ml-auto md:ml-0 shrink-0">
+       <div className="flex items-center gap-0.5 sm:gap-1.5 md:gap-2 ml-auto md:ml-0 shrink-0">
           {user && (
             <div className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-full bg-accent text-accent-foreground text-sm font-medium">
               <Wallet className="h-4 w-4" />
@@ -95,8 +95,8 @@ export function Navbar() {
           {/* <ThemeToggle /> */}
 
           <DropdownMenu>
-            <DropdownMenuTrigger className="relative h-8 w-8 sm:h-10 sm:w-10 grid place-items-center rounded-full hover:bg-muted">
-              <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
+            <DropdownMenuTrigger className="relative h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 grid place-items-center rounded-full hover:bg-muted text-foreground">
+  <Bell className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
               {unread > 0 && <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
@@ -141,7 +141,9 @@ export function Navbar() {
             </DropdownMenu>
           ) : (
             <div className="hidden sm:flex items-center gap-2">
-              <Button variant="ghost" onClick={() => openAuth("login")}>Login</Button>
+              <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8 sm:h-9 sm:w-9">
+  <Menu className="h-5 w-5" />
+</Button>
               <Button onClick={() => openAuth("register")} className="bg-gradient-primary hover:opacity-90 shadow-md">Register</Button>
             </div>
           )}
