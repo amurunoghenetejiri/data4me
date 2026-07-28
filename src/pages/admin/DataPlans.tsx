@@ -94,13 +94,37 @@ export default function AdminDataPlans() {
 
   async function save() {
     if (!editing) return;
-    const { id, ...rest } = editing;
-    if (!rest.plan_id || !rest.plan_name || !rest.network) return toast.error("Network, Plan ID and Name are required");
-    if (Number(rest.selling_price) <= 0) return toast.error("Selling price must be greater than 0");
-    const payload = { ...rest, cost_price: Number(rest.cost_price || 0), selling_price: Number(rest.selling_price), discount_percent: Number(rest.discount_percent || 0), service_fee_percent: Number(rest.service_fee_percent || 0) };
+    const id = editing.id;
+    if (!editing.plan_id || !editing.plan_name || !editing.network) {
+      return toast.error("Network, Plan ID and Name are required");
+    }
+    if (Number(editing.selling_price) <= 0) {
+      return toast.error("Selling price must be greater than 0");
+    }
+
+    // Only send editable columns — never "profit" (generated column)
+    const payload = {
+      network: editing.network,
+      plan_id: editing.plan_id,
+      plan_name: editing.plan_name,
+      category: editing.category ?? null,
+      validity: editing.validity ?? editing.duration ?? null,
+      duration: editing.duration ?? editing.validity ?? null,
+      data_size: editing.data_size ?? null,
+      cost_price: Number(editing.cost_price || 0),
+      selling_price: Number(editing.selling_price),
+      discount_percent: Number(editing.discount_percent || 0),
+      service_fee_percent: Number(editing.service_fee_percent || 0),
+      is_promo: !!editing.is_promo,
+      is_active: editing.is_active !== false,
+      description: editing.description ?? null,
+      provider: editing.provider || "smeapi",
+    };
+
     const { error } = id
       ? await supabase.from("data_plans").update(payload).eq("id", id)
       : await supabase.from("data_plans").insert(payload as any);
+
     if (error) return toast.error(error.message);
     toast.success(id ? "Plan updated" : "Plan created");
     setEditing(null);
