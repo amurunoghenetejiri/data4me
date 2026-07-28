@@ -36,6 +36,25 @@ const [psAmount, setPsAmount] = useState<number | "">("");
   const [paystackEnabled, setPaystackEnabled] = useState(true);
   const [manualEnabled, setManualEnabled] = useState(true);
   const [payBanks, setPayBanks] = useState<Array<{ id: string; bank_name: string; account_name: string; account_number: string; is_default: boolean; instructions: string | null }>>([]);
+  const [dvaLoading, setDvaLoading] = useState(false);
+
+  async function refreshDedicatedAccount() {
+    if (!user?.id) return;
+    setDvaLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-dedicated-account", { body: {} });
+      if (error) throw new Error(error.message);
+      if ((data as any)?.error) throw new Error((data as any).error);
+      if ((data as any)?.account_number) {
+        await refreshUser();
+        toast.success("Your dedicated account is ready");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Could not load dedicated account");
+    } finally {
+      setDvaLoading(false);
+    }
+  }
   useEffect(() => {
     const load = async () => {
       const { data: s } = await supabase.from("app_settings").select("paystack_enabled, manual_bank_enabled").eq("id", 1).maybeSingle();
@@ -255,7 +274,71 @@ const [psAmount, setPsAmount] = useState<number | "">("");
           </DialogContent>
         </Dialog>
       </div>
-
+      {/* Per-user Paystack dedicated virtual account */}
+      {user && (
+        <Card className="p-6 shadow-card border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 mt-6">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white grid place-items-center shadow-md">
+              <Zap className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg">Your Dedicated Account Number</h3>
+              <p className="text-xs text-muted-foreground">Transfer any amount — wallet is credited automatically</p>
+            </div>
+          </div>
+          {user.dedicatedAccountNumber ? (
+            <>
+              <div className="space-y-2 text-sm bg-background/60 rounded-xl p-4 border border-emerald-500/20">
+                <Row label="Bank">{user.dedicatedBankName || "Paystack"}</Row>
+                <Row label="Account name">{user.dedicatedAccountName || user.name}</Row>
+                <Row label="Account number">
+                  <span className="flex items-center gap-2 font-mono text-base font-semibold tracking-wide">
+                    {user.dedicatedAccountNumber}
+                    <Copy
+                      className="h-4 w-4 cursor-pointer hover:text-primary"
+                      onClick={() => {
+                        navigator.clipboard.writeText(user.dedicatedAccountNumber!);
+                        toast.success("Account number copied");
+                      }}
+                    />
+                  </span>
+                </Row>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full"
+                onClick={() => {
+                  navigator.clipboard.writeText(user.dedicatedAccountNumber!);
+                  toast.success("Account number copied!");
+                }}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy Account Number
+              </Button>
+              <p className="text-[11px] text-muted-foreground mt-3 text-center">
+                Send money from any Nigerian bank to this account. Funding is confirmed by Paystack and credited instantly.
+              </p>
+            </>
+          ) : (
+            <div className="text-center py-4 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Generating your personal Paystack account number…
+              </p>
+              <Button onClick={refreshDedicatedAccount} disabled={dvaLoading} className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white">
+                {dvaLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating account…
+                  </>
+                ) : (
+                  "Get my account number"
+                )}
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
       <div className="grid lg:grid-cols-2 gap-6 mt-6">
         {manualEnabled && (
         <Card className="p-6 shadow-card border-2 border-primary/20 hover-lift">
