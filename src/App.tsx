@@ -1,5 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
+import { captureReferralFromUrl } from "@/lib/referral";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -53,8 +55,22 @@ import Messages from "./pages/Messages";
 
 const queryClient = new QueryClient();
 
+function ReferralCapture() {
+  useEffect(() => {
+    captureReferralFromUrl();
+  }, []);
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner position="top-right" richColors />
+      <AppProvider>
+        <BrowserRouter>
+          <ReferralCapture />
+          <Routes>
     <TooltipProvider>
       <Toaster />
       <Sonner position="top-right" richColors />
