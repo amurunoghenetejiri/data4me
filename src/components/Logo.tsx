@@ -11,17 +11,12 @@ export function Logo({ className = "" }: { className?: string }) {
         src="/data4me-logo.png"
         alt="DATA4ME"
         className="
-          h-11 w-auto object-contain
-          sm:h-12
-          md:h-14
-          lg:h-16
-          drop-shadow-lg
-          ring-2 ring-primary/30
-          rounded-xl
-          bg-background/80
-          p-0.5
+          h-12 w-auto object-contain
+          sm:h-14
+          md:h-16
+          lg:h-18
+          drop-shadow-md
           group-hover:scale-105
-          group-hover:ring-primary/60
           transition duration-200
         "
         loading="eager"
