@@ -84,11 +84,10 @@ export interface FundingRequest {
 }
 
 const defaultSettings: PaymentSettings = {
-  bankName: "Opay",
-  accountName: "Jaskitinana",
+  bankName: "palmpay",
+  accountName: "Amurun Precious",
   accountNumber: "8165906606",
-  ussdCode: "*955*8165906606*Amount#",
-  supportEmail: "support@data4me.ng",
+  supportEmail: "data4me@gmail.com",
   paystackPublicKey: "",
   paystackMode: "test",
 };
@@ -119,7 +118,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [settings, setSettings] = useState<PaymentSettings>(() => load("d4m_settings", defaultSettings));
   const [notifications, setNotifications] = useState<AppState["notifications"]>([]);
-  const [theme, setTheme] = useState<"light" | "dark">(() => load("d4m_theme", "light"));
+  const [theme] = useState<"light" | "dark">("dark");
   const [fundingRequests, setFundingRequests] = useState<FundingRequest[]>(() => load("d4m_funding_requests", []));
   const [allUsers, setAllUsers] = useState<AppState["allUsers"]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -129,10 +128,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => { localStorage.setItem("d4m_hide_balance", JSON.stringify(hideBalance)); }, [hideBalance]);
   useEffect(() => { localStorage.setItem("d4m_funding_requests", JSON.stringify(fundingRequests)); }, [fundingRequests]);
   useEffect(() => {
-    const root = document.documentElement;
-    root.classList.toggle("dark", theme === "dark");
-    localStorage.setItem("d4m_theme", JSON.stringify(theme));
-  }, [theme]);
+  document.documentElement.classList.add("dark");
+}, []);
 
   async function hydrateForSession(session: { user: { id: string; email?: string | null } } | null) {
     if (!session) {
@@ -397,7 +394,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (user?.id) await supabase.from("notifications").update({ read: true } as any).eq("user_id", user.id).eq("read", false);
     },
     theme,
-    toggleTheme: () => setTheme((t) => (t === "dark" ? "light" : "dark")),
+    toggleTheme: () => {},
     fundingRequests,
     pendingFunding: fundingRequests.some((f) => f.status === "pending"),
     submitFundingRequest: async ({ amount, bank, receiptFile }) => {
