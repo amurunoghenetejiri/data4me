@@ -843,7 +843,15 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_name: string | null
+          account_number: string | null
+          bank_name: string | null
           created_at: string
+          customer_code: string | null
+          dedicated_account_assigned: boolean | null
+          dedicated_account_id: string | null
+          dedicated_account_number: string | null
+          dedicated_bank_name: string | null
           email: string | null
           full_name: string | null
           id: string
@@ -852,7 +860,15 @@ export type Database = {
           username: string | null
         }
         Insert: {
+          account_name?: string | null
+          account_number?: string | null
+          bank_name?: string | null
           created_at?: string
+          customer_code?: string | null
+          dedicated_account_assigned?: boolean | null
+          dedicated_account_id?: string | null
+          dedicated_account_number?: string | null
+          dedicated_bank_name?: string | null
           email?: string | null
           full_name?: string | null
           id: string
@@ -861,7 +877,15 @@ export type Database = {
           username?: string | null
         }
         Update: {
+          account_name?: string | null
+          account_number?: string | null
+          bank_name?: string | null
           created_at?: string
+          customer_code?: string | null
+          dedicated_account_assigned?: boolean | null
+          dedicated_account_id?: string | null
+          dedicated_account_number?: string | null
+          dedicated_bank_name?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
@@ -870,7 +894,7 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
-      }
+  }
       secure_secrets: {
         Row: {
           name: string
