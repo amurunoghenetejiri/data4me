@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { GlassCard, LoadingBlock, PageHead, StatusPill, fmtNaira, logAdminAction, maskAcct } from "./_shared";
-import { ArrowLeft, Ban, CheckCircle2, MessageSquare, ShieldOff, UserCheck } from "lucide-react";
+import { ArrowLeft, Ban, CheckCircle2, MessageSquare, ShieldOff, UserCheck, Wallet } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -14,6 +14,10 @@ export default function AdminUserDetail() {
   const [msgTitle, setMsgTitle] = useState("");
   const [msgBody, setMsgBody] = useState("");
   const [blockReason, setBlockReason] = useState("");
+  const [walletAmount, setWalletAmount] = useState("");
+  const [walletMode, setWalletMode] = useState<"set" | "credit" | "debit">("set");
+  const [walletReason, setWalletReason] = useState("");
+  const [walletSaving, setWalletSaving] = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin", "user", id],
@@ -71,6 +75,46 @@ export default function AdminUserDetail() {
     toast.success("Message sent");
     refetch();
   }
+  async function adjustWallet() {
+    const amount = Number(walletAmount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      toast.error("Enter a valid non-negative amount");
+      return;
+    }
+    if (!confirm(
+      walletMode === "set"
+        ? `Set this user's balance to ₦${amount.toLocaleString()}?`
+        : walletMode === "credit"
+          ? `Credit ₦${amount.toLocaleString()} to this wallet?`
+          : `Debit ₦${amount.toLocaleString()} from this wallet?`
+    )) return;
+
+    setWalletSaving(true);
+    try {
+      const { data: result, error } = await supabase.rpc("admin_adjust_wallet", {
+        _user_id: id,
+        _amount: amount,
+        _mode: walletMode,
+        _reason: walletReason.trim() || null,
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      const r = result as any;
+      toast.success(
+        r?.unchanged
+          ? "Balance unchanged"
+          : `Balance updated: ₦\( {Number(r?.old_balance ?? 0).toLocaleString()} → ₦ \){Number(r?.new_balance ?? 0).toLocaleString()}`
+      );
+      setWalletAmount("");
+      setWalletReason("");
+      qc.invalidateQueries({ queryKey: ["admin"] });
+      refetch();
+    } finally {
+      setWalletSaving(false);
+    }
+        }
 
   if (isLoading || !data) return <LoadingBlock label="Loading user…" />;
   if (!data.profile) return <GlassCard className="p-8 text-center"><p>User not found</p></GlassCard>;
@@ -119,20 +163,89 @@ export default function AdminUserDetail() {
           ))}
         </TabsList>
 
-        <TabsContent value="tx">
-          <GlassCard className="overflow-hidden">
-            <Table headers={["Reference", "Type", "Amount", "Status", "Date"]}>
-              {data.tx.map((t: any) => (
-                <tr key={t.id} className="text-slate-300">
-                  <td className="px-4 py-2.5 font-mono text-xs">{t.reference}</td>
-                  <td className="px-4 py-2.5 capitalize">{t.type}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-white">{fmtNaira(t.amount)}</td>
-                  <td className="px-4 py-2.5"><StatusPill status={t.status} /></td>
-                  <td className="px-4 py-2.5 text-xs text-slate-400">{new Date(t.created_at).toLocaleString()}</td>
-                </tr>
-              ))}
-            </Table>
-          </GlassCard>
+        <TabsContent value="wallet">
+          <div className="space-y-4">
+            <GlassCard className="p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-violet-300" />
+                <h3 className="font-semibold text-white">Adjust wallet balance</h3>
+              </div>
+              <p className="text-sm text-slate-400">
+                Current balance: <span className="text-white font-semibold tabular-nums">{fmtNaira(data.wallet?.balance || 0)}</span>
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                {(["set", "credit", "debit"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setWalletMode(m)}
+                    className={
+                      "px-3 py-1.5 rounded-lg text-xs font-semibold border capitalize " +
+                      (walletMode === m
+                        ? "bg-violet-600 border-violet-500 text-white"
+                        : "bg-slate-800/60 border-white/10 text-slate-300 hover:border-white/20")
+                    }
+                  >
+                    {m === "set" ? "Set balance" : m === "credit" ? "Add (credit)" : "Remove (debit)"}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold">Amount (₦)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={walletAmount}
+                    onChange={(e) => setWalletAmount(e.target.value)}
+                    placeholder={walletMode === "set" ? "New balance" : "Amount"}
+                    className="mt-1 w-full h-10 px-3 rounded-lg bg-slate-800/60 border border-white/10 text-white text-sm tabular-nums"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold">Reason (optional)</label>
+                  <input
+                    value={walletReason}
+                    onChange={(e) => setWalletReason(e.target.value)}
+                    placeholder="e.g. Bonus, correction, refund"
+                    className="mt-1 w-full h-10 px-3 rounded-lg bg-slate-800/60 border border-white/10 text-white text-sm"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={adjustWallet}
+                disabled={walletSaving || !walletAmount}
+                className="h-10 px-5 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold"
+              >
+                {walletSaving ? "Saving…" : walletMode === "set" ? "Set balance" : walletMode === "credit" ? "Credit wallet" : "Debit wallet"}
+              </button>
+            </GlassCard>
+
+            <GlassCard className="overflow-hidden">
+              <div className="px-4 py-3 border-b border-white/5">
+                <p className="text-xs uppercase tracking-widest text-slate-500 font-semibold">Wallet history</p>
+              </div>
+              <Table headers={["Date", "Type", "Amount", "Description"]}>
+                {data.tx.filter((t: any) => t.type === "wallet").map((t: any) => (
+                  <tr key={t.id}>
+                    <td className="px-4 py-2.5 text-xs text-slate-400">{new Date(t.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-2.5">
+                      <span className={"text-xs " + (String(t.description || "").includes("(debit)") ? "text-rose-300" : "text-emerald-300")}>
+                        {String(t.description || "").includes("(debit)") ? "Debit" : "Credit"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-white">{fmtNaira(t.amount)}</td>
+                    <td className="px-4 py-2.5 text-xs text-slate-300">{t.description}</td>
+                  </tr>
+                ))}
+              </Table>
+            </GlassCard>
+          </div>
         </TabsContent>
 
         <TabsContent value="logins">
