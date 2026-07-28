@@ -20,12 +20,12 @@ export default function Home() {
           <div className="absolute top-20 left-10 h-72 w-72 rounded-full bg-primary/20 blur-3xl animate-float" />
           <div className="absolute bottom-10 right-10 h-96 w-96 rounded-full bg-info/20 blur-3xl animate-float" />
         </div>
-        <div className="container relative py-20 lg:py-28 grid lg:grid-cols-2 gap-12 items-center">
+        <div className="container relative py-10 sm:py-14 md:py-20 lg:py-28 grid lg:grid-cols-2 gap-6 sm:gap-10 lg:gap-12 items-center">
           <div className="animate-slide-up">
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent text-accent-foreground text-xs font-medium mb-5">
               <Zap className="h-3.5 w-3.5" /> Instant delivery, every time
             </span>
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.05]">
+            <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05]">
               Buy <span className="text-gradient">cheap data</span> & airtime in seconds.
             </h1>
             <p className="mt-5 text-lg text-muted-foreground max-w-xl">
@@ -42,16 +42,16 @@ export default function Home() {
           </div>
 
           <div className="animate-scale-in">
-            <Card className="bg-gradient-card border-border/60 shadow-elevated p-6 rounded-3xl">
+            <Card className="bg-gradient-card border-border/60 shadow-elevated p-3 sm:p-5 md:p-6 rounded-2xl sm:rounded-3xl">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm font-medium text-muted-foreground">Quick top-up</p>
                 <span className="text-xs px-2 py-1 rounded-full bg-success/10 text-success font-medium">LIVE</span>
               </div>
-              <div className="grid grid-cols-4 gap-3 mb-5">
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-3 mb-3 sm:mb-5">
                 {networks.map((n) => (
-                  <div key={n.id} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-muted/50 hover-lift cursor-pointer">
+                  <div key={n.id} className="flex flex-col items-center gap-1 sm:gap-2 p-1.5 sm:p-3 rounded-lg sm:rounded-xl bg-muted/50 hover-lift cursor-pointer">
                     <NetworkBadge id={n.id} />
-                    <span className="text-xs font-medium">{n.name}</span>
+                    <span className="text-[10px] sm:text-xs font-medium">{n.name}</span>
                   </div>
                 ))}
               </div>
