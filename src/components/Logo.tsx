@@ -12,9 +12,9 @@ export function Logo({ className = "" }: { className?: string }) {
         alt="DATA4ME"
         className="
           h-12 w-auto object-contain
-          sm:h-14
-          md:h-16
-          lg:h-18
+          sm:h-15
+          md:h-17
+          lg:h-19
           drop-shadow-md
           group-hover:scale-105
           transition duration-200
