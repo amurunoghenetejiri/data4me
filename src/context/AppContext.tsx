@@ -16,6 +16,12 @@ export interface User {
   referralCode?: string;
   referredBy?: string;
   createdAt?: string;
+  /** Paystack dedicated virtual account (NUBAN) for wallet funding */
+  dedicatedAccountNumber?: string;
+  dedicatedBankName?: string;
+  dedicatedAccountName?: string;
+  dedicatedAccountAssigned?: boolean;
+  customerCode?: string;
 }
 
 export interface PaymentSettings {
@@ -111,6 +117,29 @@ async function resolveEmail(identifier: string): Promise<string> {
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  /** Create / fetch the user's Paystack dedicated virtual account (idempotent). */
+async function ensureDedicatedAccount(_uid?: string): Promise<{
+  account_number?: string;
+  bank_name?: string;
+  account_name?: string;
+  customer_code?: string;
+} | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke("create-dedicated-account", { body: {} });
+    if (error) {
+      console.warn("create-dedicated-account:", error.message);
+      return null;
+    }
+    if ((data as any)?.error) {
+      console.warn("create-dedicated-account:", (data as any).error);
+      return null;
+    }
+    return data as any;
+  } catch (e) {
+    console.warn("create-dedicated-account failed", e);
+    return null;
+  }
+}
   const [user, setUser] = useState<User | null>(null);
   const [authOpen, setAuthOpen] = useState<false | "login" | "register">(false);
   const [wallet, setWallet] = useState<number>(0);
@@ -160,7 +189,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       phone: p?.phone || "",
       avatarId: (p as any)?.avatar_id || "anonymous",
       createdAt: p?.created_at,
+      dedicatedAccountNumber: (p as any)?.dedicated_account_number || undefined,
+      dedicatedBankName: (p as any)?.dedicated_bank_name || (p as any)?.bank_name || undefined,
+      dedicatedAccountName: (p as any)?.account_name || p?.full_name || undefined,
+      dedicatedAccountAssigned: !!(p as any)?.dedicated_account_assigned,
+      customerCode: (p as any)?.customer_code || undefined,
     });
+
+    // Auto-assign Paystack dedicated virtual account if missing (fire-and-forget)
+    if (!(p as any)?.dedicated_account_number) {
+      ensureDedicatedAccount(uid).then((dva) => {
+        if (dva?.account_number) {
+          setUser((prev) =>
+            prev && prev.id === uid
+              ? {
+                  ...prev,
+                  dedicatedAccountNumber: dva.account_number,
+                  dedicatedBankName: dva.bank_name || prev.dedicatedBankName,
+                  dedicatedAccountName: dva.account_name || prev.dedicatedAccountName,
+                  dedicatedAccountAssigned: true,
+                  customerCode: dva.customer_code || prev.customerCode,
+                }
+              : prev,
+          );
+        }
+      });
+    }
     const avail = (availRes as any)?.data;
     setWallet(Number(avail ?? walletRes.data?.balance ?? 0));
     setTransactions(((txRes.data as any[]) || []).map((t) => ({
