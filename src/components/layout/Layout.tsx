@@ -9,7 +9,7 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      <main className="flex-1 pt-16 sm:pt-20 md:pt-24 animate-fade-in">
+      <main className="flex-1 pt-12 sm:pt-18 md:pt-20 animate-fade-in">
         <Outlet />
       </main>
 
