@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Logo } from "@/components/Logo";
-//import { ThemeToggle } from "@/components/ThemeToggle";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { getAvatar } from "@/lib/avatars";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
@@ -92,7 +92,7 @@ export function Navbar() {
             </div>
           )}
 
-          <ThemeToggle />
+          {/* <ThemeToggle /> */}
 
           <DropdownMenu>
             <DropdownMenuTrigger className="relative h-8 w-8 sm:h-10 sm:w-10 grid place-items-center rounded-full hover:bg-muted">
