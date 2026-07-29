@@ -341,16 +341,76 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
       setAuthOpen(false);
     },
     register: async ({ name, username, email, phone, password }) => {
-      // username uniqueness check (best effort)
       const { data: dup } = await supabase.from("profiles").select("username").eq("username", username.toLowerCase()).maybeSingle();
       if (dup) throw new Error("Username already taken");
+
+      let pendingRef: string | null = null;
+      try {
+        const { getPendingReferral } = await import("@/lib/referral");
+        pendingRef = getPendingReferral();
+      } catch { /* noop */ }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
-          data: { full_name: name, username: username.toLowerCase(), phone },
+          data: {
+            full_name: name,
+            username: username.toLowerCase(),
+            phone,
+            referral_code: pendingRef || undefined,
+          },
         },
+      });
+      if (error) throw error;
+
+      if (data.session && data.user && pendingRef) {
+        try {
+          const { data: result } = await supabase.rpc("apply_referral", {
+            _referred_id: data.user.id,
+            _code: pendingRef,
+          });
+          const r = result as any;
+          if (r?.ok) {
+            try {
+              const { clearPendingReferral } = await import("@/lib/referral");
+              clearPendingReferral();
+            } catch { /* noop */ }
+            notifyTelegram("Referral Signup", "🔗", {
+              "Event Type": "referral_signup",
+              "New User": "@" + username.toLowerCase(),
+              Email: email,
+              Phone: phone || "-",
+              "Referred By": "@" + (r.referrer_username || "-"),
+              "Referrer Email": r.referrer_email || "-",
+              Bonus: "NGN " + (r.bonus ?? 100),
+              "User ID": data.user.id,
+            });
+          }
+        } catch { /* noop */ }
+      }
+
+      try {
+        const { device, os } = parseUserAgent();
+        const ip = await getClientIp();
+        notifyTelegram("New User Registered", "🆕", {
+          "Event Type": "user_registered",
+          "Full Name": name,
+          Username: "@" + username.toLowerCase(),
+          Email: email,
+          Phone: phone,
+          "User ID": data.user?.id || "-",
+          "Referral Code Used": pendingRef || "none",
+          "Registered At": new Date().toISOString(),
+          Device: device,
+          OS: os,
+          IP: ip,
+        });
+      } catch { /* noop */ }
+
+      return { needsOtp: !data.session };
+    },
       });
       if (error) throw error;
       // Telegram notification for new registration (best-effort)
