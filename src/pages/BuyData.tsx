@@ -50,6 +50,10 @@ export default function BuyData() {
   const [selected, setSelected] = useState<DataPlan | null>(null);
   const [step, setStep] = useState<"review" | "pay" | "done">("review");
   const [pinOpen, setPinOpen] = useState(false);
+  const [dataCharge, setDataCharge] = useState<{ mode: "fixed" | "percent"; value: number }>({
+    mode: "fixed",
+    value: 0,
+  });
   const [receipt, setReceipt] = useState<Transaction | null>(null);
   const [processing, setProcessing] = useState(false);
 
@@ -83,12 +87,40 @@ export default function BuyData() {
     });
   }, []);
 
+  useEffect(() => {
+    supabase
+      .from("charge_settings")
+      .select("mode, value, is_active")
+      .eq("service", "data")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data && data.is_active) {
+          setDataCharge({
+            mode: data.mode === "percent" ? "percent" : "fixed",
+            value: Number(data.value) || 0,
+          });
+        } else {
+          setDataCharge({ mode: "fixed", value: 0 });
+        }
+      });
+  }, []);
+  
   const allPlans = livePlans ?? staticPlans;
   const plans = useMemo(() => allPlans.filter((p) =>
     p.network === network &&
     p.category === cat &&
     (query === "" || p.size.toLowerCase().includes(query.toLowerCase())),
   ), [allPlans, network, cat, query]);
+  function calcCharge(price: number) {
+    if (!price || dataCharge.value <= 0) return 0;
+    if (dataCharge.mode === "percent") {
+      return Math.round((price * dataCharge.value) / 100 * 100) / 100;
+    }
+    return Number(dataCharge.value) || 0;
+  }
+
+  const chargeAmount = selected ? calcCharge(selected.price) : 0;
+  const totalAmount = selected ? selected.price + chargeAmount : 0;
 
   function start(p: DataPlan) {
     if (!user) { openAuth("login"); return; }
