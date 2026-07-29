@@ -24,6 +24,7 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
+import Referrals from "./pages/Referrals";
 import Support from "./pages/Support";
 import { Terms, Privacy } from "./pages/Legal";
 import NotFound from "./pages/NotFound";
@@ -117,6 +118,7 @@ const App = () => (
               <Route path="/contact" element={<Contact />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/referrals" element={<Referrals />} />
               <Route path="/support" element={<Support />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/bank" element={<Bank />} />
