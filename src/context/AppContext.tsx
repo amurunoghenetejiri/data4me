@@ -245,28 +245,7 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
         // log login activity (best-effort)
         supabase.from("login_activity").insert({ user_id: session.user.id, event: "login", user_agent: navigator.userAgent });
         // Telegram login notification (best-effort, non-blocking)
-        // Online presence: ping last_seen every 45s while logged in
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const touch = () => {
-      supabase.rpc("touch_last_seen").then(() => {}).catch(() => {});
-    };
-
-    touch(); // immediately when session is active
-
-    const intervalId = window.setInterval(touch, 45_000);
-
-    const onVisible = () => {
-      if (document.visibilityState === "visible") touch();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [user?.id]);
+        
         setTimeout(async () => {
           try {
             const uid = session.user.id;
@@ -295,6 +274,29 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Online presence: ping last_seen every 45s while logged in
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const touch = () => {
+      supabase.rpc("touch_last_seen").then(() => {}).catch(() => {});
+    };
+
+    touch();
+
+    const intervalId = window.setInterval(touch, 45_000);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") touch();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [user?.id]);
 
   // Realtime: wallet, transactions, notifications - FIXED
   useEffect(() => {
