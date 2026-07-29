@@ -182,6 +182,34 @@ export function AuthModal() {
       const { error } = await supabase.auth.verifyOtp({ email: acct.email, token: otp, type: "signup" });
       if (error) throw error;
       await persistBankIfNeeded();
+
+      // Apply pending referral once session exists
+      try {
+        const { getPendingReferral, clearPendingReferral } = await import("@/lib/referral");
+        const code = getPendingReferral();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && code) {
+          const { data: result } = await supabase.rpc("apply_referral", {
+            _referred_id: user.id,
+            _code: code,
+          });
+          const r = result as any;
+          if (r?.ok) {
+            clearPendingReferral();
+            notifyTelegram("Referral Signup", "🔗", {
+              "Event Type": "referral_signup",
+              "New User": "@" + (acct.username || acct.email),
+              Email: acct.email,
+              Phone: acct.phone || "-",
+              "Referred By": "@" + (r.referrer_username || "-"),
+              "Referrer Email": r.referrer_email || "-",
+              Bonus: "NGN " + (r.bonus ?? 100),
+              "User ID": user.id,
+            });
+          }
+        }
+      } catch { /* noop */ }
+
       notifyTelegram("New User Registration", "🎉", {
         "Event Type": "User Registered",
         Username: acct.username || acct.email,
