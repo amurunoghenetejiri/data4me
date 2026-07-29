@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/context/AppContext";
 import { Link } from "react-router-dom";
-import { Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft, Wifi, Phone, Tv, Zap, Send, History, Settings as SettingsIcon, Plus, Sparkles, Bell, User as UserIcon, ArrowUpFromLine, Receipt } from "lucide-react";
+import { Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft, Wifi, Phone, Tv, Zap, Send, History, Settings as SettingsIcon, Plus, Sparkles, Bell, User as UserIcon, ArrowUpFromLine, Receipt, Gift } from "lucide-react";
 import { NetworkBadge } from "@/components/NetworkBadge";
 import { cn } from "@/lib/utils";
 import { getAvatar } from "@/lib/avatars";
@@ -18,6 +18,7 @@ const ACTIONS = [
   { to: "/cable", label: "Cable TV", icon: Tv },
   { to: "/electricity", label: "Electricity", icon: Zap },
   { to: "/transfer", label: "Transfer", icon: Send },
+  { to: "/referrals", label: "Referrals", icon: Gift },
   { to: "/withdraw", label: "Withdraw", icon: ArrowUpFromLine },
   { to: "/notifications", label: "Notifications", icon: Bell },
   { to: "/profile", label: "Profile", icon: UserIcon },
@@ -107,6 +108,24 @@ export default function Dashboard() {
     </Link>
   ))}
 </div>
+      <Card className="p-5 shadow-card mb-6 border-primary/20 bg-primary/5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-xl bg-primary/15 grid place-items-center shrink-0">
+              <Gift className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold">Refer & Earn ₦100</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Share your link. When a friend signs up, you get ₦100 in your wallet.
+              </p>
+            </div>
+          </div>
+          <Link to="/referrals">
+            <Button className="w-full sm:w-auto">Get my link</Button>
+          </Link>
+        </div>
+      </Card>
 
       <Card className="p-6 shadow-card">
         <div className="flex items-center justify-between mb-4">
