@@ -17,6 +17,30 @@ import { Transaction } from "@/lib/data";
 import { supabase } from "@/integrations/supabase/client";
 import { buyData } from "@/services/vtuPurchase";
 
+  /** Map DB network values (names or provider IDs) → mtn|glo|airtel|9mobile */
+function normalizeNetwork(raw: string, provider?: string): NetworkId | null {
+  const v = String(raw || "").trim().toLowerCase();
+  if (v === "mtn" || v === "glo" || v === "airtel" || v === "9mobile") return v;
+  if (v === "etisalat") return "9mobile";
+
+  const p = String(provider || "").toLowerCase();
+  // SME Plug: 1=MTN, 2=AIRTEL, 3=GLO, 4=9MOBILE
+  if (p.includes("smeplug")) {
+    if (v === "1") return "mtn";
+    if (v === "2") return "airtel";
+    if (v === "3") return "glo";
+    if (v === "4") return "9mobile";
+  }
+  // SME API: 1=MTN, 2=GLO, 3=9MOBILE, 4=AIRTEL
+  if (p.includes("smeapi") || !p) {
+    if (v === "1") return "mtn";
+    if (v === "2") return "glo";
+    if (v === "3") return "9mobile";
+    if (v === "4") return "airtel";
+  }
+  return null;
+}
+
 export default function BuyData() {
   const { user, openAuth, wallet, addTransaction, settings, pushNotification, refreshUser } = useApp();
   const [network, setNetwork] = useState<NetworkId>("mtn");
@@ -34,13 +58,16 @@ export default function BuyData() {
   useEffect(() => {
     supabase.from("data_plans").select("*").eq("is_active", true).then(({ data }) => {
       if (!data || data.length === 0) { setLivePlans(null); return; }
-      const mapped: DataPlan[] = data.map((p: any) => {
+      const mapped: DataPlan[] = [];
+      for (const p of data as any[]) {
+        const net = normalizeNetwork(p.network, p.provider || p.supplier);
+        if (!net) continue; // skip unknown networks
         const price = Number(p.selling_price);
         const discount = Number(p.discount_percent) || 0;
         const originalPrice = discount > 0 ? Math.round(price / (1 - discount / 100)) : price;
-        return {
+        mapped.push({
           id: p.id,
-          network: p.network as NetworkId,
+          network: net,
           size: p.data_size || p.plan_name,
           validity: p.duration || p.validity || "",
           price,
@@ -50,8 +77,8 @@ export default function BuyData() {
           category: (p.category || "monthly") as PlanCategory,
           type: "SME",
           popular: !!p.is_promo,
-        };
-      });
+        });
+      }
       setLivePlans(mapped);
     });
   }, []);
