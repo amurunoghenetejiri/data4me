@@ -296,10 +296,8 @@ export default function BuyData() {
                 <Row label="Validity">{selected.validity}</Row>
                 <Row label="Phone">{phone}</Row>
                 <Row label="Plan price">₦{selected.price.toLocaleString()}</Row>
-                <Row label="Service charge">
-                  {chargeAmount > 0
-                    ? "₦" + chargeAmount.toLocaleString() + (dataCharge.mode === "percent" ? " (" + dataCharge.value + "%)" : "")
-                    : "₦0"}
+               <Row label="Service charge">
+                  {chargeAmount > 0 ? "₦" + chargeAmount.toLocaleString() : "₦0"}
                 </Row>
                 <Row label="Total to pay" highlight>
                   ₦{totalAmount.toLocaleString()}
