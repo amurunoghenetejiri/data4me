@@ -19,7 +19,7 @@ const SMEPLUG_KEY = Deno.env.get('SMEPLUG_API_KEY') || '';
 const SMEAPI_NET_ID: Record<string, number> = { MTN: 1, GLO: 2, '9MOBILE': 3, AIRTEL: 4 };
 const SMEPLUG_NET_ID: Record<string, number> = { MTN: 1, AIRTEL: 2, GLO: 3, '9MOBILE': 4 };
 
-const CHARGE = 1;
+//const CHARGE = 1;
 
 // ---------- Response helpers ----------
 const j = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -32,6 +32,25 @@ async function tg(title: string, emoji: string, rows: Record<string, any>) {
       Object.entries(rows).filter(([, v]) => v != null && v !== '').map(([k, v]) => `<b>${k}:</b> ${v}`).join('\n') +
       `\n<b>Time:</b> ${new Date().toISOString()}`);
   } catch {}
+}
+
+async function getServiceCharge(svc: any, service: string, amount: number): Promise<number> {
+  try {
+    const { data } = await svc
+      .from("charge_settings")
+      .select("mode, value, is_active")
+      .eq("service", service)
+      .maybeSingle();
+    if (!data || !data.is_active) return 0;
+    const value = Number(data.value) || 0;
+    if (value <= 0) return 0;
+    if (data.mode === "percent") {
+      return Math.round((amount * value) / 100 * 100) / 100;
+    }
+    return value;
+  } catch {
+    return 0;
+  }
 }
 
 // ---------- Auth ----------
@@ -218,14 +237,15 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
   if (!['MTN', 'GLO', 'AIRTEL', '9MOBILE'].includes(network)) return fail('Unsupported network');
   if (!Number.isFinite(amount) || amount < 50 || amount > 1_000_000) return fail('Amount must be between ₦50 and ₦1,000,000');
 
-  const total = amount + CHARGE;
+  const charge = await getServiceCharge(svc, "airtime", amount);
+  const total = amount + charge;
 
   // 1. Reserve funds
   let holdId: string;
   try {
     const { data, error } = await svc.rpc('create_wallet_hold', {
       _user_id: user.id, _amount: total, _purpose: 'airtime',
-      _meta: { network, phone, product_amount: amount, charge: CHARGE },
+      _meta: { network, phone, product_amount: amount, charge },
     });
     if (error) throw error;
     holdId = data as string;
@@ -256,8 +276,8 @@ _meta: {
   network, phone,
   product_amount: amount,
   cost_price: amount,
-  charge: CHARGE,
-  profit: CHARGE,
+  charge,
+  profit: charge,
   provider: finalProvider,
   supplier_reference: finalResult.reference,
   provider_response: finalResult.body,
@@ -296,14 +316,14 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
 
   const network = String(plan.network || '').toUpperCase();
   const sellingPrice = Number(plan.selling_price);
-  const total = sellingPrice + CHARGE;
-
+  const charge = await getServiceCharge(svc, "data", sellingPrice);
+  const total = sellingPrice + charge;
   // Reserve
   let holdId: string;
   try {
     const { data, error } = await svc.rpc('create_wallet_hold', {
       _user_id: user.id, _amount: total, _purpose: 'data',
-      _meta: { plan_id: plan.id, provider: plan.provider, network, phone, product_amount: sellingPrice, charge: CHARGE },
+      _meta: { plan_id: plan.id, provider: plan.provider, network, phone, product_amount: sellingPrice, charge },
     });
     if (error) throw error;
     holdId = data as string;
@@ -351,7 +371,7 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
         plan_id: plan.id, network, phone,
         product_amount: sellingPrice,
         cost_price: costPrice,
-        charge: CHARGE,
+        charge,
         profit: dataProfit,
         provider: finalProvider, original_provider: primaryProvider,
         provider_plan_id: finalProviderPlanId,
@@ -368,7 +388,7 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
       Provider: finalProvider, User: user.email || user.id, Network: network, Phone: phone,
       Plan: `${plan.data_size} / ${plan.validity}`, Amount: `₦${sellingPrice}`, Retries: attempts.length - 1,
     });
-    return ok({ tx_id: (tx as any)?.id, charge: CHARGE, total, provider: finalProvider, retries: attempts.length - 1, response: finalResult.body });
+    return ok({ tx_id: (tx as any)?.id, charge, total, provider: finalProvider, retries: attempts.length - 1, response: finalResult.body });
   }
 
   await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: finalResult?.error || 'provider-failed' });
