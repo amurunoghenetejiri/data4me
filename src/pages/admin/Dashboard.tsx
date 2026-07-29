@@ -65,7 +65,7 @@ export default function AdminDashboard() {
         <LoadingBlock label="Loading dashboard…" />
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-6">
             <Stat to="/admin/users" label="Total users" value={data!.totalUsers} icon={Users} accent="violet" />
             <Stat to="/admin/users" label="New (7 days)" value={data!.newUsers} icon={UserPlus} accent="cyan" />
             <Stat to="/admin/activity" label="Active now" value={data!.active} icon={Activity} accent="emerald" hint="last 30 min" />
