@@ -170,6 +170,105 @@ const App = () => (
         <BrowserRouter>
           <ReferralCapture />
           <Routes>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="users/:id" element={<AdminUserDetail />} />
+              <Route path="transactions" element={<AdminTransactions />} />
+              <Route path="deposits" element={<AdminDeposits />} />
+              <Route path="receipt-queue" element={<ReceiptQueue />} />
+              <Route path="withdrawals" element={<AdminWithdrawals />} />
+              <Route path="kyc" element={<KycPage />} />
+              <Route path="products" element={<AdminProducts />} />
+              <Route path="data-plans" element={<AdminDataPlans />} />
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="notifications" element={<AdminBroadcast />} />
+              <Route path="settings" element={<AdminSettings />} />
+              <Route path="payment-settings" element={<AdminPaymentSettings />} />
+              <Route path="pricing-charges" element={<AdminPricingCharges />} />
+              <Route path="activity" element={<AdminActivityCenter />} />
+              <Route path="accounts" element={<AdminAccountsPage />} />
+              <Route path="audit" element={<AdminAuditLogs />} />
+              <Route path="security" element={<SecurityPage />} />
+              <Route path="support" element={<SupportPage />} />
+              <Route path="database" element={<DatabasePage />} />
+              <Route path="vtu-providers" element={<AdminVtuProviders />} />
+              <Route path="smeapi-status" element={<AdminVtuProviders />} />
+              <Route path="messages" element={<AdminMessages />} />
+              <Route path="telegram" element={<AdminTelegramIntegration />} />
+            </Route>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/buy-data" element={<BuyData />} />
+              <Route path="/buy-airtime" element={<BuyAirtime />} />
+              <Route path="/networks" element={<Networks />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/wallet" element={<Wallet />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/transfer" element={<Transfer />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/cable" element={<Cable />} />
+              <Route path="/electricity" element={<Electricity />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/support" element={<Support />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/bank" element={<Bank />} />
+              <Route path="/withdraw" element={<Withdraw />} />
+              <Route path="/chat" element={<Chat />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </AppProvider>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;import AdminUserDetail from "./pages/admin/UserDetail";
+import AdminTransactions from "./pages/admin/Transactions";
+import AdminDeposits from "./pages/admin/Deposits";
+import AdminWithdrawals from "./pages/admin/Withdrawals";
+import ReceiptQueue from "./pages/admin/ReceiptQueue";
+import AdminProducts from "./pages/admin/Products";
+import AdminDataPlans from "./pages/admin/DataPlans";
+import AdminAuditLogs from "./pages/admin/AuditLogs";
+import AdminSettings from "./pages/admin/Settings";
+import AdminPaymentSettings from "./pages/admin/PaymentSettings";
+import AdminPricingCharges from "./pages/admin/PricingCharges";
+import AdminActivityCenter from "./pages/admin/ActivityCenter";
+import AdminBroadcast from "./pages/admin/Notifications";
+import { KycPage, ReportsPage, AdminAccountsPage, SecurityPage, SupportPage, DatabasePage } from "./pages/admin/Misc";
+import AdminVtuProviders from "./pages/admin/VtuProviders";
+import AdminMessages from "./pages/admin/Messages";
+import AdminTelegramIntegration from "./pages/admin/TelegramIntegration";
+import Messages from "./pages/Messages";
+
+const queryClient = new QueryClient();
+
+function ReferralCapture() {
+  useEffect(() => {
+    captureReferralFromUrl();
+  }, []);
+  return null;
+}
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner position="top-right" richColors />
+      <AppProvider>
+        <BrowserRouter>
+          <ReferralCapture />
+          <Routes>
     <TooltipProvider>
       <Toaster />
       <Sonner position="top-right" richColors />
