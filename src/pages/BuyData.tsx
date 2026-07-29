@@ -298,10 +298,14 @@ export default function BuyData() {
                 <Row label="Plan price">₦{selected.price.toLocaleString()}</Row>
                 <Row label="Service charge">
                   {chargeAmount > 0
-                    ? `₦\( {chargeAmount.toLocaleString()} \){dataCharge.mode === "percent" ? ` (${dataCharge.value}%)` : ""}`
+                    ? `₦\( {chargeAmount.toLocaleString()} \){
+                        dataCharge.mode === "percent" ? ` (${dataCharge.value}%)` : ""
+                      }`
                     : "₦0"}
                 </Row>
-                <Row label="Total to pay" highlight>₦{totalAmount.toLocaleString()}</Row>
+                <Row label="Total to pay" highlight>
+                  ₦{totalAmount.toLocaleString()}
+                </Row>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={() => setSelected(null)} disabled={processing}>Cancel</Button>
