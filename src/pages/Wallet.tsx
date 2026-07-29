@@ -275,7 +275,7 @@ const [psAmount, setPsAmount] = useState<number | "">("");
         </Dialog>
       </div>
       {/* Per-user Paystack dedicated virtual account */}
-      {user && (
+      {false && user && (
         <Card className="p-6 shadow-card border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 mt-6">
           <div className="flex items-center gap-3 mb-3">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white grid place-items-center shadow-md">
