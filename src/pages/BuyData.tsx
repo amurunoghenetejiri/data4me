@@ -130,15 +130,21 @@ export default function BuyData() {
 
   function payWallet() {
     if (!selected) return;
-    if (wallet < selected.price) { toast.error("Insufficient wallet balance. Fund your wallet first."); return; }
+    if (wallet < totalAmount) {
+      toast.error(`Insufficient balance. You need ₦${totalAmount.toLocaleString()} (plan + charge).`);
+      return;
+    }
     setPinOpen(true);
-  }
+    }
 
   async function confirmData() {
     if (!selected) return;
     setPinOpen(false);
     if (!user) { toast.error("Not authenticated"); return; }
-    if (wallet < selected.price) { toast.error("Insufficient wallet balance"); return; }
+    if (wallet < totalAmount) {
+      toast.error(`Insufficient balance. You need ₦${totalAmount.toLocaleString()}.`);
+      return;
+    }
 
     setProcessing(true);
     const toastId = toast.loading(`Processing ${selected.size}...`);
@@ -289,7 +295,13 @@ export default function BuyData() {
                 <Row label="Plan">{selected.size} • {selected.type}</Row>
                 <Row label="Validity">{selected.validity}</Row>
                 <Row label="Phone">{phone}</Row>
-                <Row label="Amount" highlight>₦{selected.price.toLocaleString()}</Row>
+                <Row label="Plan price">₦{selected.price.toLocaleString()}</Row>
+                <Row label="Service charge">
+                  {chargeAmount > 0
+                    ? `₦\( {chargeAmount.toLocaleString()} \){dataCharge.mode === "percent" ? ` (${dataCharge.value}%)` : ""}`
+                    : "₦0"}
+                </Row>
+                <Row label="Total to pay" highlight>₦{totalAmount.toLocaleString()}</Row>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" onClick={() => setSelected(null)} disabled={processing}>Cancel</Button>
@@ -305,7 +317,7 @@ export default function BuyData() {
               </DialogHeader>
               <div className="space-y-3">
                 <button onClick={payWallet} disabled={processing} className="w-full p-4 rounded-xl border-2 border-primary bg-accent text-left hover:shadow-card transition disabled:opacity-50">
-                  <div className="flex items-center gap-3"><Wallet className="h-5 w-5 text-primary" /><div className="flex-1"><p className="font-semibold">Pay with wallet</p><p className="text-xs text-muted-foreground">Balance: ₦{wallet.toLocaleString()}</p></div><span className="font-bold">₦{selected.price.toLocaleString()}</span></div>
+                  <div className="flex items-center gap-3"><Wallet className="h-5 w-5 text-primary" /><div className="flex-1"><p className="font-semibold">Pay with wallet</p><p className="text-xs text-muted-foreground">Balance: ₦{wallet.toLocaleString()}</p></div><span className="font-bold">₦{totalAmount.toLocaleString()}</span></div>
                 </button>
                 <div className="p-4 rounded-xl border border-border bg-muted/30">
                   <div className="flex items-center gap-2 mb-2"><CreditCard className="h-5 w-5 text-primary" /><p className="font-semibold">Bank transfer</p></div>
@@ -328,7 +340,11 @@ export default function BuyData() {
           )}
         </DialogContent>
       </Dialog>
-      <PinDialog open={pinOpen} onClose={() => setPinOpen(false)} onVerified={confirmData} title="Authorise data purchase" description={selected ? `Confirm ${selected.size} ${selected.network.toUpperCase()} for ₦${selected.price.toLocaleString()}.` : ""} />
+      <PinDialog open={pinOpen} onClose={() => setPinOpen(false)} onVerified={confirmData} title="Authorise data purchase" description={
+  selected
+    ? `Confirm ${selected.size} \( {selected.network.toUpperCase()}. Plan ₦ \){selected.price.toLocaleString()} + charge ₦\( {chargeAmount.toLocaleString()} = ₦ \){totalAmount.toLocaleString()}.`
+    : ""
+      } />
       <ReceiptDialog tx={receipt} onClose={() => setReceipt(null)} />
     </div>
   );
