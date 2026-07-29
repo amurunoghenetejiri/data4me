@@ -35,18 +35,34 @@ export function Stat({ label, value, icon: Icon, accent = "violet", hint, to }: 
     cyan: "from-cyan-500/20 to-sky-500/5 border-cyan-500/30 text-cyan-300",
   }[accent];
   const inner = (
-    <GlassCard className={cn("p-5 h-full", to && "transition hover:border-white/20 hover:bg-slate-900/80 cursor-pointer")}>
-      <div className={cn("h-10 w-10 rounded-xl bg-gradient-to-br border grid place-items-center mb-3", tint)}>
-        <Icon className="h-5 w-5" />
+    <GlassCard className={cn(
+      "h-full",
+      "p-3 sm:p-5",
+      to && "transition hover:border-white/20 hover:bg-slate-900/80 cursor-pointer",
+    )}>
+      <div className={cn(
+        "rounded-lg sm:rounded-xl bg-gradient-to-br border grid place-items-center mb-2 sm:mb-3",
+        "h-8 w-8 sm:h-10 sm:w-10",
+        tint,
+      )}>
+        <Icon className="h-3.5 w-3.5 sm:h-5 sm:w-5" />
       </div>
-      <p className="text-2xl font-bold text-white tabular-nums">{value}</p>
-      <p className="text-xs text-slate-400 mt-1">{label}</p>
-      {hint && <p className="text-[10px] text-slate-500 mt-1">{hint}</p>}
+      <p className="text-base sm:text-2xl font-bold text-white tabular-nums leading-tight truncate">
+        {value}
+      </p>
+      <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1 leading-snug line-clamp-2">
+        {label}
+      </p>
+      {hint && (
+        <p className="text-[9px] sm:text-[10px] text-slate-500 mt-0.5 sm:mt-1 line-clamp-1">
+          {hint}
+        </p>
+      )}
     </GlassCard>
   );
-  if (to) return <a href={to} className="block">{inner}</a>;
+  if (to) return <a href={to} className="block min-w-0">{inner}</a>;
   return inner;
-}
+      }
 
 
 export function LoadingBlock({ label = "Loading…" }: { label?: string }) {
