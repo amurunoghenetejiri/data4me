@@ -298,9 +298,7 @@ export default function BuyData() {
                 <Row label="Plan price">₦{selected.price.toLocaleString()}</Row>
                 <Row label="Service charge">
                   {chargeAmount > 0
-                    ? `₦\( {chargeAmount.toLocaleString()} \){
-                        dataCharge.mode === "percent" ? ` (${dataCharge.value}%)` : ""
-                      }`
+                    ? "₦" + chargeAmount.toLocaleString() + (dataCharge.mode === "percent" ? " (" + dataCharge.value + "%)" : "")
                     : "₦0"}
                 </Row>
                 <Row label="Total to pay" highlight>
@@ -344,11 +342,27 @@ export default function BuyData() {
           )}
         </DialogContent>
       </Dialog>
-      <PinDialog open={pinOpen} onClose={() => setPinOpen(false)} onVerified={confirmData} title="Authorise data purchase" description={
-  selected
-    ? `Confirm ${selected.size} \( {selected.network.toUpperCase()}. Plan ₦ \){selected.price.toLocaleString()} + charge ₦\( {chargeAmount.toLocaleString()} = ₦ \){totalAmount.toLocaleString()}.`
-    : ""
-      } />
+      <PinDialog
+        open={pinOpen}
+        onClose={() => setPinOpen(false)}
+        onVerified={confirmData}
+        title="Authorise data purchase"
+        description={
+          selected
+            ? "Confirm " +
+              selected.size +
+              " " +
+              selected.network.toUpperCase() +
+              ". Plan ₦" +
+              selected.price.toLocaleString() +
+              " + charge ₦" +
+              chargeAmount.toLocaleString() +
+              " = ₦" +
+              totalAmount.toLocaleString() +
+              "."
+            : ""
+        }
+      />
       <ReceiptDialog tx={receipt} onClose={() => setReceipt(null)} />
     </div>
   );
