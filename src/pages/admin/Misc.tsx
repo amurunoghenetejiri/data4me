@@ -1,8 +1,7 @@
-import { GlassCard, PageHead } from "./_shared";
+import { GlassCard, PageHead, LoadingBlock, ErrorBlock, fmtNaira } from "./_shared";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { BadgeCheck, BarChart3, ShieldCheck, Lock, LifeBuoy, Database } from "lucide-react";
-
+import { BadgeCheck, BarChart3, ShieldCheck, Lock, LifeBuoy, Database, RefreshCw, Wallet, Users, Receipt, TrendingUp } from "lucide-react";
 export function KycPage() {
   const { data } = useQuery({ queryKey: ["admin", "kyc"], queryFn: async () => (await supabase.from("user_status").select("*").order("updated_at", { ascending: false })).data || [] });
   return (
@@ -27,56 +26,261 @@ export function KycPage() {
 }
 
 export function ReportsPage() {
-  const { data } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["admin", "reports"],
     queryFn: async () => {
-      const [tx, users] = await Promise.all([
-        supabase.from("transactions").select("amount,type,status,created_at"),
-        supabase.from("profiles").select("created_at"),
+      const since = new Date(Date.now() - 7 * 86400_000).toISOString();
+
+      const [txRes, usersRes, fundingRes, wdRes] = await Promise.all([
+        supabase
+          .from("transactions")
+          .select("amount,type,status,charge,profit,created_at")
+          .gte("created_at", since),
+        supabase
+          .from("profiles")
+          .select("created_at")
+          .gte("created_at", since),
+        supabase
+          .from("funding_requests")
+          .select("amount,status,created_at")
+          .gte("created_at", since),
+        supabase
+          .from("withdrawals")
+          .select("amount,status,created_at")
+          .gte("created_at", since),
       ]);
-      const days: Record<string, { rev: number; deposits: number; users: number }> = {};
+
+      if (txRes.error) throw new Error(txRes.error.message);
+      if (usersRes.error) throw new Error(usersRes.error.message);
+
+      const txs = txRes.data || [];
+      const users = usersRes.data || [];
+      const fundings = fundingRes.data || [];
+      const withdrawals = wdRes.data || [];
+
+      // Last 7 calendar days (local-ish via ISO date)
+      const days: Record<string, { rev: number; deposits: number; users: number; txCount: number }> = {};
       for (let i = 6; i >= 0; i--) {
         const d = new Date(Date.now() - i * 86400_000).toISOString().slice(0, 10);
-        days[d] = { rev: 0, deposits: 0, users: 0 };
+        days[d] = { rev: 0, deposits: 0, users: 0, txCount: 0 };
       }
-      (tx.data || []).forEach((t: any) => {
-        const d = t.created_at.slice(0, 10); if (!days[d]) return;
-        if (t.status === "success") {
-          if (t.type === "wallet") days[d].deposits += Number(t.amount);
-          else days[d].rev += Number(t.amount);
+
+      let revenue = 0;
+      let deposits = 0;
+      let profit = 0;
+      let charges = 0;
+      let successTx = 0;
+      let failedTx = 0;
+      const byType: Record<string, number> = {};
+
+      txs.forEach((t: any) => {
+        const d = String(t.created_at || "").slice(0, 10);
+        const amount = Number(t.amount) || 0;
+        const isSuccess = t.status === "success" || t.status === "successful";
+
+        if (isSuccess) {
+          successTx += 1;
+          charges += Number(t.charge) || 0;
+          profit += Number(t.profit) || 0;
+
+          if (t.type === "wallet") {
+            deposits += amount;
+            if (days[d]) days[d].deposits += amount;
+          } else if (t.type !== "refund") {
+            revenue += amount;
+            if (days[d]) {
+              days[d].rev += amount;
+              days[d].txCount += 1;
+            }
+            const key = t.type || "other";
+            byType[key] = (byType[key] || 0) + amount;
+          }
+        } else if (t.status === "failed" || t.status === "refunded") {
+          failedTx += 1;
         }
       });
-      (users.data || []).forEach((u: any) => { const d = u.created_at.slice(0, 10); if (days[d]) days[d].users += 1; });
-      return days;
+
+      users.forEach((u: any) => {
+        const d = String(u.created_at || "").slice(0, 10);
+        if (days[d]) days[d].users += 1;
+      });
+
+      const pendingFunding = fundings.filter((f: any) => f.status === "pending").length;
+      const approvedFunding = fundings
+        .filter((f: any) => f.status === "approved")
+        .reduce((s: number, f: any) => s + (Number(f.amount) || 0), 0);
+      const withdrawn = withdrawals
+        .filter((w: any) => ["successful", "approved", "completed"].includes(w.status))
+        .reduce((s: number, w: any) => s + (Number(w.amount) || 0), 0);
+
+      return {
+        days,
+        revenue,
+        deposits,
+        profit,
+        charges,
+        successTx,
+        failedTx,
+        newUsers: users.length,
+        pendingFunding,
+        approvedFunding,
+        withdrawn,
+        byType,
+      };
     },
   });
-  const entries = Object.entries(data || {});
+
+  if (isLoading) {
+    return (
+      <div>
+        <PageHead title="Reports" subtitle="Business performance overview" icon={BarChart3} />
+        <LoadingBlock label="Loading reports…" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div>
+        <PageHead title="Reports" subtitle="Business performance overview" icon={BarChart3} />
+        <ErrorBlock message={(error as Error)?.message || "Failed to load reports"} onRetry={() => refetch()} />
+      </div>
+    );
+  }
+
+  const entries = Object.entries(data!.days);
   const max = Math.max(1, ...entries.map(([, v]) => Math.max(v.rev, v.deposits)));
+  const typeEntries = Object.entries(data!.byType).sort((a, b) => b[1] - a[1]);
+
   return (
-    <div>
-      <PageHead title="Reports" subtitle="Last 7 days at a glance" icon={BarChart3} />
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <PageHead title="Reports" subtitle="Last 7 days at a glance" icon={BarChart3} />
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="h-10 px-4 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <GlassCard className="p-4">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+            <TrendingUp className="h-3.5 w-3.5 text-violet-300" /> Revenue
+          </div>
+          <p className="text-xl font-bold text-white tabular-nums">{fmtNaira(data!.revenue)}</p>
+          <p className="text-[10px] text-slate-500 mt-1">{data!.successTx} successful sales</p>
+        </GlassCard>
+        <GlassCard className="p-4">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+            <Wallet className="h-3.5 w-3.5 text-emerald-300" /> Deposits
+          </div>
+          <p className="text-xl font-bold text-white tabular-nums">{fmtNaira(data!.deposits)}</p>
+          <p className="text-[10px] text-slate-500 mt-1">{data!.pendingFunding} pending funding</p>
+        </GlassCard>
+        <GlassCard className="p-4">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+            <Receipt className="h-3.5 w-3.5 text-amber-300" /> Profit / Charges
+          </div>
+          <p className="text-xl font-bold text-white tabular-nums">{fmtNaira(data!.profit)}</p>
+          <p className="text-[10px] text-slate-500 mt-1">Charges {fmtNaira(data!.charges)}</p>
+        </GlassCard>
+        <GlassCard className="p-4">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+            <Users className="h-3.5 w-3.5 text-cyan-300" /> New users
+          </div>
+          <p className="text-xl font-bold text-white tabular-nums">{data!.newUsers}</p>
+          <p className="text-[10px] text-slate-500 mt-1">{data!.failedTx} failed tx · Withdrawn {fmtNaira(data!.withdrawn)}</p>
+        </GlassCard>
+      </div>
+
+      {/* Chart */}
       <GlassCard className="p-5">
-        <div className="grid grid-cols-7 gap-3 h-56 items-end">
-          {entries.map(([day, v]) => (
-            <div key={day} className="flex flex-col items-center gap-1">
-              <div className="w-full flex gap-1 items-end h-full">
-                <div className="flex-1 bg-gradient-to-t from-violet-600 to-violet-400 rounded-t-md" style={{ height: `${(v.rev / max) * 100}%` }} title={`Revenue ₦${v.rev}`} />
-                <div className="flex-1 bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-md" style={{ height: `${(v.deposits / max) * 100}%` }} title={`Deposits ₦${v.deposits}`} />
+        <h3 className="text-sm font-semibold text-white mb-4">Daily revenue vs deposits</h3>
+        {entries.every(([, v]) => v.rev === 0 && v.deposits === 0) ? (
+          <p className="text-sm text-slate-400 py-12 text-center">No transactions in the last 7 days yet.</p>
+        ) : (
+          <div className="grid grid-cols-7 gap-2 sm:gap-3 h-56 items-end">
+            {entries.map(([day, v]) => (
+              <div key={day} className="flex flex-col items-center gap-1 h-full justify-end">
+                <div className="w-full flex gap-0.5 sm:gap-1 items-end" style={{ height: "100%" }}>
+                  <div
+                    className="flex-1 bg-gradient-to-t from-violet-600 to-violet-400 rounded-t min-h-[2px]"
+                    style={{ height: `${Math.max(2, (v.rev / max) * 100)}%` }}
+                    title={`Revenue ${fmtNaira(v.rev)}`}
+                  />
+                  <div
+                    className="flex-1 bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t min-h-[2px]"
+                    style={{ height: `${Math.max(2, (v.deposits / max) * 100)}%` }}
+                    title={`Deposits ${fmtNaira(v.deposits)}`}
+                  />
+                </div>
+                <p className="text-[10px] text-slate-500">{day.slice(5)}</p>
+                <p className="text-[10px] text-slate-300">+{v.users}</p>
               </div>
-              <p className="text-[10px] text-slate-500">{day.slice(5)}</p>
-              <p className="text-[10px] text-slate-300">+{v.users}</p>
-            </div>
-          ))}
-        </div>
-        <div className="flex gap-4 mt-4 text-xs">
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded bg-violet-500" /> Revenue</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded bg-emerald-500" /> Deposits</span>
-          <span className="text-slate-400">+N = new users</span>
+            ))}
+          </div>
+        )}
+        <div className="flex flex-wrap gap-4 mt-4 text-xs text-slate-400">
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded bg-violet-500" /> Revenue</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded bg-emerald-500" /> Deposits</span>
+          <span>+N = new users that day</span>
         </div>
       </GlassCard>
+
+      {/* Breakdown table + by type */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        <GlassCard className="p-5">
+          <h3 className="text-sm font-semibold text-white mb-3">Daily breakdown</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500 border-b border-white/5">
+                  <th className="py-2 pr-2">Date</th>
+                  <th className="py-2 pr-2">Revenue</th>
+                  <th className="py-2 pr-2">Deposits</th>
+                  <th className="py-2 pr-2">Sales</th>
+                  <th className="py-2">Users</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map(([day, v]) => (
+                  <tr key={day} className="border-b border-white/5 text-slate-300">
+                    <td className="py-2.5 pr-2 font-mono text-xs">{day}</td>
+                    <td className="py-2.5 pr-2 tabular-nums text-violet-300">{fmtNaira(v.rev)}</td>
+                    <td className="py-2.5 pr-2 tabular-nums text-emerald-300">{fmtNaira(v.deposits)}</td>
+                    <td className="py-2.5 pr-2 tabular-nums">{v.txCount}</td>
+                    <td className="py-2.5 tabular-nums">+{v.users}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-5">
+          <h3 className="text-sm font-semibold text-white mb-3">Revenue by service</h3>
+          {typeEntries.length === 0 ? (
+            <p className="text-sm text-slate-400 py-8 text-center">No successful sales yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {typeEntries.map(([type, amount]) => (
+                <li key={type} className="flex items-center justify-between gap-3 py-2 border-b border-white/5">
+                  <span className="text-sm text-slate-300 capitalize">{type}</span>
+                  <span className="text-sm font-semibold text-white tabular-nums">{fmtNaira(amount)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </GlassCard>
+      </div>
     </div>
   );
-}
+          }
 
 export function AdminAccountsPage() {
   const { data } = useQuery({
