@@ -197,7 +197,7 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
     });
 
     // Auto-assign Paystack dedicated virtual account if missing (fire-and-forget)
-    if (!(p as any)?.dedicated_account_number) {
+    if (false && !(p as any)?.dedicated_account_number) {
       ensureDedicatedAccount(uid).then((dva) => {
         if (dva?.account_number) {
           setUser((prev) =>
