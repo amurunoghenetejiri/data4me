@@ -140,6 +140,27 @@ export default function AdminLayout() {
           <ArrowLeft className="h-4 w-4" /> Back to User Dashboard
         </button>
       </div>
+      {/* Provider balances */}
+      <div className="px-3 pt-3 space-y-2">
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-emerald-300/90 font-semibold">
+            <Wallet className="h-3 w-3" />
+            SME API
+          </div>
+          <p className="text-base font-bold text-white tabular-nums mt-0.5">
+            {balLoading ? "…" : smeapiBal != null ? `₦${smeapiBal.toLocaleString()}` : "—"}
+          </p>
+        </div>
+        <div className="rounded-xl border border-violet-500/25 bg-violet-500/10 px-3 py-2.5">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-violet-300/90 font-semibold">
+            <Wallet className="h-3 w-3" />
+            SMEPlug
+          </div>
+          <p className="text-base font-bold text-white tabular-nums mt-0.5">
+            {balLoading ? "…" : smeplugBal != null ? `₦${smeplugBal.toLocaleString()}` : "—"}
+          </p>
+        </div>
+      </div>
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         {nav.map((n) => (
           <NavLink
