@@ -334,7 +334,14 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
   if (pErr || !plan) return fail('Selected plan not found');
   if (!plan.is_active) return fail('Selected plan is not available');
 
-  const network = String(plan.network || '').toUpperCase();
+  const rawNetwork = String(plan.network || '').trim();
+  const NETWORK_BY_ID: Record<string, string> = {
+    "1": "MTN",
+    "2": "GLO",
+    "3": "9MOBILE",
+    "4": "AIRTEL",
+  };
+  const network = (NETWORK_BY_ID[rawNetwork] || rawNetwork).toUpperCase();
   const sellingPrice = Number(plan.selling_price);
   const charge = await getServiceCharge(svc, "data", sellingPrice);
   const total = sellingPrice + charge;
