@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Users, Receipt, ArrowDownToLine, ArrowUpFromLine, BadgeCheck,
   Package, BarChart3, Bell, Settings, ShieldCheck, FileClock, Lock, LifeBuoy,
-  Database, LogOut, Menu, X, Wifi, CreditCard, Activity, Inbox, Sliders, ArrowLeft, Send, Server
+  Database, LogOut, Menu, X, Wifi, CreditCard, Activity, Inbox, Sliders, ArrowLeft, Send, Server, Wallet
 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
@@ -42,6 +42,9 @@ export default function AdminLayout() {
   const [state, setState] = useState<"loading" | "denied" | "ok">("loading");
   const [me, setMe] = useState<{ id: string; email: string } | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [smeapiBal, setSmeapiBal] = useState<number | null>(null);
+  const [smeplugBal, setSmeplugBal] = useState<number | null>(null);
+  const [balLoading, setBalLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -66,6 +69,43 @@ export default function AdminLayout() {
     reset();
     return () => { active = false; sub.subscription.unsubscribe(); window.clearTimeout(timer); events.forEach((e) => window.removeEventListener(e, reset)); };
   }, [navigate]);
+
+  useEffect(() => {
+    if (state !== "ok") return;
+
+    let cancelled = false;
+
+    async function loadBalances() {
+      setBalLoading(true);
+      try {
+        const [a, b] = await Promise.all([
+          supabase.functions.invoke("smeapi", { body: { action: "status" } }),
+          supabase.functions.invoke("smeplug", { body: { action: "status" } }),
+        ]);
+        if (cancelled) return;
+
+        const aBal = a.data?.balance;
+        const bBal = b.data?.balance;
+
+        setSmeapiBal(typeof aBal === "number" ? aBal : null);
+        setSmeplugBal(typeof bBal === "number" ? bBal : null);
+      } catch {
+        if (!cancelled) {
+          setSmeapiBal(null);
+          setSmeplugBal(null);
+        }
+      } finally {
+        if (!cancelled) setBalLoading(false);
+      }
+    }
+
+    loadBalances();
+    const id = window.setInterval(loadBalances, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [state]);
 
   if (state === "loading") {
     return (
