@@ -140,11 +140,22 @@ export function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <div className="hidden sm:flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8 sm:h-9 sm:w-9">
-  <Menu className="h-5 w-5" />
-</Button>
-              <Button onClick={() => openAuth("register")} className="bg-gradient-primary hover:opacity-90 shadow-md">Register</Button>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
+                onClick={() => openAuth("login")}
+              >
+                Login
+              </Button>
+              <Button
+                size="sm"
+                className="h-8 px-2 sm:px-3 text-xs sm:text-sm bg-gradient-primary hover:opacity-90 shadow-md"
+                onClick={() => openAuth("register")}
+              >
+                Register
+              </Button>
             </div>
           )}
 
