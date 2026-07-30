@@ -17,7 +17,7 @@ const SMEPLUG_BASE = (Deno.env.get('SMEPLUG_BASE_URL') || 'https://smeplug.ng/ap
 const SMEPLUG_KEY = Deno.env.get('SMEPLUG_API_KEY') || '';
 
 const SMEAPI_NET_ID: Record<string, number> = { MTN: 1, GLO: 2, '9MOBILE': 3, AIRTEL: 4 };
-const SMEPLUG_NET_ID: Record<string, number> = { MTN: 1, AIRTEL: 2, GLO: 3, '9MOBILE': 4 };
+const SMEPLUG_NET_ID: Record<string, number> = { MTN: 1, AIRTEL: 2, '9MOBILE': 3, GLO: 4 };
 
 const NETWORK_BY_ID: Record<string, string> = {
   '1': 'MTN',
