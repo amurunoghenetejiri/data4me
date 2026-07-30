@@ -21,9 +21,9 @@ const SMEPLUG_NET_ID: Record<string, number> = { MTN: 1, AIRTEL: 2, '9MOBILE': 3
 
 const NETWORK_BY_ID: Record<string, string> = {
   '1': 'MTN',
-  '2': 'GLO',
+  '2': 'AIRTEL',
   '3': '9MOBILE',
-  '4': 'AIRTEL',
+  '4': 'GLO',
 };
 
 function normalizeNetwork(raw: string): string {
