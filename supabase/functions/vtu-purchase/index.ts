@@ -1,6 +1,6 @@
 // DATA4ME VTU Purchase — Multi-provider (SMEAPI + SMEPlug) with wallet-hold flow.
 // Wallet is only PERMANENTLY debited on provider success. Failures release the hold.
-// On recoverable provider errors, an equivalent plan on the alternate provider is retried.
+// User-facing errors are always short and plain (no provider codes / HTTP text).
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2.45.0';
 import { notifyTelegram } from '../_shared/telegram.ts';
@@ -31,7 +31,6 @@ function normalizeNetwork(raw: string): string {
   return (NETWORK_BY_ID[s] || s).toUpperCase();
 }
 
-// ---------- Response helpers ----------
 const j = (b: any, s = 200) =>
   new Response(JSON.stringify(b), {
     status: s,
@@ -39,6 +38,59 @@ const j = (b: any, s = 200) =>
   });
 const ok = (b: any) => j({ success: true, ...b });
 const fail = (error: string, data: any = {}) => j({ success: false, error, data });
+
+/** Map any raw error to a short message safe for users. */
+function userSafeError(raw?: string | null): string {
+  const msg = String(raw || '').toLowerCase();
+  if (!msg) return 'Transaction failed. Please try again.';
+
+  if (msg.includes('insufficient')) {
+    return 'Insufficient wallet balance. Fund your wallet and try again.';
+  }
+  if (msg.includes('invalid') && msg.includes('phone')) {
+    return 'Enter a valid Nigerian phone number.';
+  }
+  if (msg.includes('unsupported network')) {
+    return 'Selected network is not supported. Please try another network.';
+  }
+  if (
+    msg.includes('plan is required') ||
+    msg.includes('plan not found') ||
+    msg.includes('not available')
+  ) {
+    return 'Selected plan is not available. Please choose another plan.';
+  }
+  if (msg.includes('amount must be') || msg.includes('invalid amount')) {
+    return 'Invalid amount. Please check and try again.';
+  }
+  if (msg.includes('not authenticated') || msg.includes('authorization') || msg.includes('sign in')) {
+    return 'Please sign in and try again.';
+  }
+  if (
+    msg.includes('timeout') ||
+    msg.includes('unavailable') ||
+    msg.includes('maintenance') ||
+    msg.includes('try again') ||
+    msg.includes('temporarily') ||
+    msg.includes('low balance') ||
+    msg.includes('insufficient fund') ||
+    msg.includes('not configured') ||
+    msg.includes('busy') ||
+    msg.includes('down') ||
+    msg.includes('provider') ||
+    msg.includes('smeapi') ||
+    msg.includes('smeplug') ||
+    msg.includes('http') ||
+    msg.includes('500') ||
+    msg.includes('502') ||
+    msg.includes('503') ||
+    msg.includes('429') ||
+    msg.includes('network')
+  ) {
+    return 'Service temporarily unavailable. Please try again later.';
+  }
+  return 'Transaction failed. Please try again.';
+}
 
 async function tg(title: string, emoji: string, rows: Record<string, any>) {
   try {
@@ -90,16 +142,13 @@ async function awardCashbackIfAny(
       console.error('[vtu-purchase] cashback error', error.message);
       return 0;
     }
-    const n = Number(data) || 0;
-    console.log('[vtu-purchase] cashback awarded', { service, amount, cashback: n, userId });
-    return n;
+    return Number(data) || 0;
   } catch (e) {
     console.error('[vtu-purchase] cashback exception', e);
     return 0;
   }
 }
 
-// ---------- Auth ----------
 async function requireUser(req: Request): Promise<{ id: string; email?: string }> {
   const auth = req.headers.get('Authorization') || '';
   const token = auth.replace(/^Bearer\s+/i, '');
@@ -110,7 +159,6 @@ async function requireUser(req: Request): Promise<{ id: string; email?: string }
   return { id: data.user.id, email: data.user.email || undefined };
 }
 
-// ---------- Provider adapters ----------
 type ProviderResult = {
   ok: boolean;
   recoverable: boolean;
@@ -170,7 +218,9 @@ function isRecoverable(status: number, body: any): boolean {
 }
 
 async function callSmeapi(path: string, body: any): Promise<ProviderResult> {
-  if (!SMEAPI_KEY) return { ok: false, recoverable: false, status: 0, body: null, error: 'SMEAPI not configured' };
+  if (!SMEAPI_KEY) {
+    return { ok: false, recoverable: false, status: 0, body: null, error: 'SMEAPI not configured' };
+  }
   try {
     const res = await fetch(`\( {SMEAPI_BASE} \){path}`, {
       method: 'POST',
@@ -204,7 +254,9 @@ async function callSmeapi(path: string, body: any): Promise<ProviderResult> {
 }
 
 async function callSmeplug(path: string, body: any): Promise<ProviderResult> {
-  if (!SMEPLUG_KEY) return { ok: false, recoverable: false, status: 0, body: null, error: 'SMEPlug not configured' };
+  if (!SMEPLUG_KEY) {
+    return { ok: false, recoverable: false, status: 0, body: null, error: 'SMEPlug not configured' };
+  }
   try {
     const res = await fetch(`\( {SMEPLUG_BASE} \){path}`, {
       method: 'POST',
@@ -250,7 +302,9 @@ async function providerBuyAirtime(
   const NET = normalizeNetwork(network);
   if (provider === 'smeapi') {
     const id = SMEAPI_NET_ID[NET];
-    if (!id) return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEAPI: ${NET}` };
+    if (!id) {
+      return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEAPI: ${NET}` };
+    }
     return callSmeapi('/airtime/', {
       network: id,
       amount,
@@ -262,7 +316,9 @@ async function providerBuyAirtime(
   }
   if (provider === 'smeplug') {
     const id = SMEPLUG_NET_ID[NET];
-    if (!id) return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEPlug: ${NET}` };
+    if (!id) {
+      return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEPlug: ${NET}` };
+    }
     return callSmeplug('/airtime/purchase', {
       network_id: id,
       amount,
@@ -282,7 +338,9 @@ async function providerBuyData(
   const NET = normalizeNetwork(network);
   if (provider === 'smeapi') {
     const id = SMEAPI_NET_ID[NET];
-    if (!id) return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEAPI: ${NET}` };
+    if (!id) {
+      return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEAPI: ${NET}` };
+    }
     return callSmeapi('/data/', {
       network: id,
       mobile_number: phone,
@@ -293,7 +351,9 @@ async function providerBuyData(
   }
   if (provider === 'smeplug') {
     const id = SMEPLUG_NET_ID[NET];
-    if (!id) return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEPlug: ${NET}` };
+    if (!id) {
+      return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEPlug: ${NET}` };
+    }
     return callSmeplug('/data/purchase', {
       network_id: id,
       plan_id: planId,
@@ -304,7 +364,6 @@ async function providerBuyData(
   return { ok: false, recoverable: false, status: 0, body: null, error: `Unknown provider: ${provider}` };
 }
 
-// ---------- Logging ----------
 async function logApi(
   svc: any,
   args: {
@@ -333,7 +392,6 @@ async function logApi(
   } catch {}
 }
 
-// ---------- Handler ----------
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -345,23 +403,26 @@ Deno.serve(async (req) => {
 
     if (action === 'buy-airtime') return await handleAirtime(svc, user, payload);
     if (action === 'buy-data') return await handleData(svc, user, payload);
-    return fail(`Unknown action: ${action}`);
+    return fail('Something went wrong. Please try again.');
   } catch (e: any) {
     console.error('[vtu-purchase] fatal', e?.message, e?.stack);
-    return fail(e?.message || 'Server error');
+    return fail(userSafeError(e?.message));
   }
 });
 
-// ---------- Airtime ----------
 async function handleAirtime(svc: any, user: { id: string; email?: string }, p: any) {
   const network = normalizeNetwork(String(p.network || ''));
   const phone = String(p.phone || '').trim();
   const amount = Number(p.amount);
 
-  if (!/^0[789][01]\d{8}$/.test(phone)) return fail('Invalid Nigerian phone number');
-  if (!['MTN', 'GLO', 'AIRTEL', '9MOBILE'].includes(network)) return fail('Unsupported network');
+  if (!/^0[789][01]\d{8}$/.test(phone)) {
+    return fail('Enter a valid Nigerian phone number.');
+  }
+  if (!['MTN', 'GLO', 'AIRTEL', '9MOBILE'].includes(network)) {
+    return fail('Selected network is not supported. Please try another network.');
+  }
   if (!Number.isFinite(amount) || amount < 50 || amount > 1_000_000) {
-    return fail('Amount must be between ₦50 and ₦1,000,000');
+    return fail('Invalid amount. Please check and try again.');
   }
 
   const charge = await getServiceCharge(svc, 'airtime', amount);
@@ -378,9 +439,7 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     if (error) throw error;
     holdId = data as string;
   } catch (e: any) {
-    return fail(
-      e?.message?.includes('Insufficient') ? 'Insufficient wallet balance' : e?.message || 'Could not reserve funds'
-    );
+    return fail(userSafeError(e?.message));
   }
 
   const attempts: Array<{ provider: string; result: ProviderResult }> = [];
@@ -431,7 +490,7 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     });
     if (cErr) {
       await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: 'commit-failed' });
-      return fail(cErr.message || 'Commit failed');
+      return fail('Transaction failed. Please try again.');
     }
 
     const txId = (tx as any)?.id || null;
@@ -463,6 +522,8 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     _hold_id: holdId,
     _reason: finalResult?.error || 'provider-failed',
   });
+
+  // Full detail for admin Telegram only
   tg('Airtime Failed', '❌', {
     User: user.email || user.id,
     Network: network,
@@ -470,30 +531,30 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     Amount: `₦${amount}`,
     Attempts: attempts.map((a) => `\( {a.provider}: \){a.result.error || 'err'}`).join(' | '),
   });
-  return fail(finalResult?.error || 'Airtime purchase failed', {
+
+  // Clean message for the user only
+  return fail(userSafeError(finalResult?.error), {
     refunded: true,
-    attempts: attempts.map((a) => ({
-      provider: a.provider,
-      error: a.result.error,
-      status: a.result.status,
-    })),
   });
 }
 
-// ---------- Data ----------
 async function handleData(svc: any, user: { id: string; email?: string }, p: any) {
   const planIdInternal = String(p.plan_id || '').trim();
   const phone = String(p.phone || '').trim();
-  if (!/^0[789][01]\d{8}$/.test(phone)) return fail('Invalid Nigerian phone number');
-  if (!planIdInternal) return fail('Plan is required');
+  if (!/^0[789][01]\d{8}$/.test(phone)) {
+    return fail('Enter a valid Nigerian phone number.');
+  }
+  if (!planIdInternal) {
+    return fail('Please select a data plan.');
+  }
 
   const { data: plan, error: pErr } = await svc
     .from('data_plans')
     .select('*')
     .eq('id', planIdInternal)
     .maybeSingle();
-  if (pErr || !plan) return fail('Selected plan not found');
-  if (!plan.is_active) return fail('Selected plan is not available');
+  if (pErr || !plan) return fail('Selected plan is not available. Please choose another plan.');
+  if (!plan.is_active) return fail('Selected plan is not available. Please choose another plan.');
 
   const network = normalizeNetwork(String(plan.network || ''));
   const sellingPrice = Number(plan.selling_price);
@@ -518,9 +579,7 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     if (error) throw error;
     holdId = data as string;
   } catch (e: any) {
-    return fail(
-      e?.message?.includes('Insufficient') ? 'Insufficient wallet balance' : e?.message || 'Could not reserve funds'
-    );
+    return fail(userSafeError(e?.message));
   }
 
   const primaryProvider = String(plan.provider || plan.supplier || 'smeapi');
@@ -599,7 +658,7 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     });
     if (cErr) {
       await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: 'commit-failed' });
-      return fail(cErr.message || 'Commit failed');
+      return fail('Transaction failed. Please try again.');
     }
 
     const txId = (tx as any)?.id || null;
@@ -627,4 +686,20 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     });
   }
 
-  await svc.rpc('release_wal
+  await svc.rpc('release_wallet_hold', {
+    _hold_id: holdId,
+    _reason: finalResult?.error || 'provider-failed',
+  });
+
+  tg('Data Failed', '❌', {
+    User: user.email || user.id,
+    Network: network,
+    Phone: phone,
+    Plan: `${plan.data_size} / ${plan.validity}`,
+    Attempts: attempts.map((a) => `\( {a.provider}: \){a.result.error || 'err'}`).join(' | '),
+  });
+
+  return fail(userSafeError(finalResult?.error), {
+    refunded: true,
+  });
+}
