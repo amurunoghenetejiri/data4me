@@ -6,6 +6,7 @@ export type VTUResponse = {
   txId?: string;
   charge?: number;
   total?: number;
+  cashback?: number;
   error?: string;
   data?: {
     txId?: string;
@@ -15,29 +16,72 @@ export type VTUResponse = {
   response?: any;
 };
 
+/** Never show edge-function / HTTP / provider noise to users. */
+function userSafeMessage(raw?: string): string {
+  const msg = String(raw || "").toLowerCase();
+  if (!msg) return "Transaction failed. Please try again.";
+
+  if (msg.includes("insufficient")) {
+    return "Insufficient wallet balance. Fund your wallet and try again.";
+  }
+  if (msg.includes("phone")) {
+    return "Enter a valid Nigerian phone number.";
+  }
+  if (msg.includes("network") && msg.includes("support")) {
+    return "Selected network is not supported. Please try another network.";
+  }
+  if (msg.includes("plan")) {
+    return "Selected plan is not available. Please choose another plan.";
+  }
+  if (
+    msg.includes("edge function") ||
+    msg.includes("non-2xx") ||
+    msg.includes("2xx") ||
+    msg.includes("functionshttperror") ||
+    msg.includes("functionsrelayerror") ||
+    msg.includes("failed to send") ||
+    msg.includes("fetch") ||
+    msg.includes("networkerror") ||
+    msg.includes("http") ||
+    msg.includes("status code") ||
+    msg.includes("smeapi") ||
+    msg.includes("smeplug") ||
+    msg.includes("provider") ||
+    msg.includes("timeout") ||
+    msg.includes("unavailable")
+  ) {
+    return "Service temporarily unavailable. Please try again later.";
+  }
+  if (msg.includes("sign in") || msg.includes("auth")) {
+    return "Please sign in and try again.";
+  }
+  // Already a short clean message from the edge function
+  if (
+    msg.includes("transaction failed") ||
+    msg.includes("try again") ||
+    msg.includes("fund your wallet") ||
+    msg.includes("not available")
+  ) {
+    return raw!.trim();
+  }
+  return "Transaction failed. Please try again.";
+}
+
 function parseFunctionError(message?: string) {
   if (!message) return "";
-
   const jsonStart = message.indexOf("{");
-  if (jsonStart === -1) return message;
-
+  if (jsonStart === -1) return userSafeMessage(message);
   try {
     const parsed = JSON.parse(message.slice(jsonStart));
-    return parsed?.error || parsed?.message || message;
+    return userSafeMessage(parsed?.error || parsed?.message || message);
   } catch {
-    return message;
+    return userSafeMessage(message);
   }
 }
 
-/**
- * Purchase airtime via vtu-purchase edge function
- * - Debits wallet server-side (via debit_wallet RPC)
- * - Calls SMEAPI provider
- * - Auto-refunds on failure
- */
 export async function buyAirtime(network: string, phone: string, amount: number): Promise<VTUResponse> {
   const { data: session } = await supabase.auth.getSession();
-  if (!session?.session?.access_token) throw new Error("Not authenticated");
+  if (!session?.session?.access_token) throw new Error("Please sign in and try again.");
 
   const { data, error } = await supabase.functions.invoke("vtu-purchase", {
     headers: {
@@ -51,22 +95,22 @@ export async function buyAirtime(network: string, phone: string, amount: number)
     },
   });
 
-  if (error) throw new Error(parseFunctionError(error.message) || "Failed to purchase airtime");
-  if (!data) throw new Error("No response from server");
-  
+  if (error) throw new Error(parseFunctionError(error.message));
+  if (!data) throw new Error("Transaction failed. Please try again.");
+
+  if (data.success === false) {
+    return {
+      ...data,
+      error: userSafeMessage(data.error),
+    } as VTUResponse;
+  }
+
   return data as VTUResponse;
 }
 
-/**
- * Purchase data plan via vtu-purchase edge function
- * - Looks up plan from data_plans table
- * - Debits wallet server-side
- * - Calls SMEAPI provider
- * - Auto-refunds on failure
- */
 export async function buyData(planId: string, phone: string): Promise<VTUResponse> {
   const { data: session } = await supabase.auth.getSession();
-  if (!session?.session?.access_token) throw new Error("Not authenticated");
+  if (!session?.session?.access_token) throw new Error("Please sign in and try again.");
 
   const { data, error } = await supabase.functions.invoke("vtu-purchase", {
     headers: {
@@ -79,8 +123,15 @@ export async function buyData(planId: string, phone: string): Promise<VTURespons
     },
   });
 
-  if (error) throw new Error(parseFunctionError(error.message) || "Failed to purchase data");
-  if (!data) throw new Error("No response from server");
-  
+  if (error) throw new Error(parseFunctionError(error.message));
+  if (!data) throw new Error("Transaction failed. Please try again.");
+
+  if (data.success === false) {
+    return {
+      ...data,
+      error: userSafeMessage(data.error),
+    } as VTUResponse;
+  }
+
   return data as VTUResponse;
 }
