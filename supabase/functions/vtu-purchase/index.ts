@@ -27,8 +27,16 @@ const NETWORK_BY_ID: Record<string, string> = {
 };
 
 function normalizeNetwork(raw: string): string {
-  const s = String(raw || '').trim();
-  return (NETWORK_BY_ID[s] || s).toUpperCase();
+  const s = String(raw || '').trim().toLowerCase();
+  if (s === 'mtn') return 'MTN';
+  if (s === 'glo') return 'GLO';
+  if (s === 'airtel') return 'AIRTEL';
+  if (s === '9mobile' || s === '9mobile' || s === 'etisalat') return '9MOBILE';
+  // Already uppercase names
+  const u = s.toUpperCase();
+  if (['MTN', 'GLO', 'AIRTEL', '9MOBILE'].includes(u)) return u;
+  // Do NOT map 1/2/3/4 here — SMEAPI and SMEPlug use different IDs
+  return u;
 }
 
 const j = (b: any, s = 200) =>
