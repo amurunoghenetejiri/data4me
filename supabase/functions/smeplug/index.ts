@@ -6,13 +6,13 @@ import { createClient } from 'npm:@supabase/supabase-js@2.45.0';
 const BASE = (Deno.env.get('SMEPLUG_BASE_URL') || 'https://smeplug.ng/api/v1').replace(/\/+$/, '');
 const KEY = Deno.env.get('SMEPLUG_API_KEY') || '';
 
-// SMEPlug numeric network IDs
-const NETWORK_ID_MAP: Record<string, number> = { MTN: 1, AIRTEL: 2, GLO: 3, '9MOBILE': 4 };
+// SMEPlug numeric network IDs — CORRECT: 1=MTN, 2=AIRTEL, 3=9MOBILE, 4=GLO
+const NETWORK_ID_MAP: Record<string, number> = { MTN: 1, AIRTEL: 2, '9MOBILE': 3, GLO: 4 };
 function toNetworkId(n: any): number | null {
   if (typeof n === 'number') return n;
   return NETWORK_ID_MAP[String(n || '').toUpperCase().trim()] ?? null;
 }
-const NET_KEY_BY_ID: Record<number, string> = { 1: 'mtn', 2: 'airtel', 3: 'glo', 4: '9mobile' };
+const NET_KEY_BY_ID: Record<number, string> = { 1: 'mtn', 2: 'airtel', 3: '9mobile', 4: 'glo' };
 
 function authHeaders(): Record<string, string> {
   return {
@@ -24,7 +24,7 @@ function authHeaders(): Record<string, string> {
 
 async function call(path: string, init?: RequestInit) {
   const started = Date.now();
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`\( {BASE} \){path}`, {
     ...init,
     headers: { ...authHeaders(), ...(init?.headers || {}) },
   });
@@ -105,13 +105,13 @@ Deno.serve(async (req) => {
           const validity = String(p.validity ?? p.duration ?? p.days ?? 'N/A').trim();
           const cost = Number(p.price ?? p.amount ?? p.user_price ?? 0);
           const plan_type = String(p.type ?? p.plan_type ?? 'SME');
-          const plan_name = `${network.toUpperCase()} ${data_size} (${validity})`;
+          const plan_name = `${network.toUpperCase()} \( {data_size} ( \){validity})`;
           const category = /night/i.test(plan_type) ? 'night'
             : /(day|daily)/i.test(validity) && /^1/.test(validity) ? 'daily'
             : /(week)/i.test(validity) ? 'weekly'
             : 'monthly';
 
-          seen.add(`${network}:${plan_id}`);
+          seen.add(`\( {network}: \){plan_id}`);
 
           const { data: existing } = await svc
             .from('data_plans')
@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
 
         // Remove stale SMEPlug-only plans
         const { data: allPlans } = await svc.from('data_plans').select('id, network, plan_id').eq('provider', 'smeplug');
-        const stale = (allPlans || []).filter((p: any) => !seen.has(`${p.network}:${p.plan_id}`)).map((p: any) => p.id);
+        const stale = (allPlans || []).filter((p: any) => !seen.has(`\( {p.network}: \){p.plan_id}`)).map((p: any) => p.id);
         if (stale.length) {
           const { error } = await svc.from('data_plans').delete().in('id', stale);
           if (!error) removed = stale.length;
