@@ -19,31 +19,52 @@ const SMEPLUG_KEY = Deno.env.get('SMEPLUG_API_KEY') || '';
 const SMEAPI_NET_ID: Record<string, number> = { MTN: 1, GLO: 2, '9MOBILE': 3, AIRTEL: 4 };
 const SMEPLUG_NET_ID: Record<string, number> = { MTN: 1, AIRTEL: 2, GLO: 3, '9MOBILE': 4 };
 
+const NETWORK_BY_ID: Record<string, string> = {
+  '1': 'MTN',
+  '2': 'GLO',
+  '3': '9MOBILE',
+  '4': 'AIRTEL',
+};
+
+function normalizeNetwork(raw: string): string {
+  const s = String(raw || '').trim();
+  return (NETWORK_BY_ID[s] || s).toUpperCase();
+}
+
 // ---------- Response helpers ----------
-const j = (b: any, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+const j = (b: any, s = 200) =>
+  new Response(JSON.stringify(b), {
+    status: s,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 const ok = (b: any) => j({ success: true, ...b });
 const fail = (error: string, data: any = {}) => j({ success: false, error, data });
 
 async function tg(title: string, emoji: string, rows: Record<string, any>) {
   try {
-    await notifyTelegram(`${emoji} <b>DATA4ME • ${title}</b>\n` +
-      Object.entries(rows).filter(([, v]) => v != null && v !== '').map(([k, v]) => `<b>${k}:</b> ${v}`).join('\n') +
-      `\n<b>Time:</b> ${new Date().toISOString()}`);
+    await notifyTelegram(
+      `${emoji} <b>DATA4ME • ${title}</b>\n` +
+        Object.entries(rows)
+          .filter(([, v]) => v != null && v !== '')
+          .map(([k, v]) => `<b>${k}:</b> ${v}`)
+          .join('\n') +
+        `\n<b>Time:</b> ${new Date().toISOString()}`
+    );
   } catch {}
 }
 
 async function getServiceCharge(svc: any, service: string, amount: number): Promise<number> {
   try {
     const { data } = await svc
-      .from("charge_settings")
-      .select("mode, value, is_active")
-      .eq("service", service)
+      .from('charge_settings')
+      .select('mode, value, is_active')
+      .eq('service', service)
       .maybeSingle();
     if (!data || !data.is_active) return 0;
     const value = Number(data.value) || 0;
     if (value <= 0) return 0;
-    if (data.mode === "percent") {
-      return Math.round((amount * value) / 100 * 100) / 100;
+    if (data.mode === 'percent') {
+      return Math.round(((amount * value) / 100) * 100) / 100;
     }
     return value;
   } catch {
@@ -59,19 +80,21 @@ async function awardCashbackIfAny(
   sourceTxId: string | null
 ): Promise<number> {
   try {
-    const { data, error } = await svc.rpc("award_cashback", {
+    const { data, error } = await svc.rpc('award_cashback', {
       _user_id: userId,
       _service: service,
       _amount: amount,
       _source_tx_id: sourceTxId,
     });
     if (error) {
-      console.error("[vtu-purchase] cashback error", error.message);
+      console.error('[vtu-purchase] cashback error', error.message);
       return 0;
     }
-    return Number(data) || 0;
+    const n = Number(data) || 0;
+    console.log('[vtu-purchase] cashback awarded', { service, amount, cashback: n, userId });
+    return n;
   } catch (e) {
-    console.error("[vtu-purchase] cashback exception", e);
+    console.error('[vtu-purchase] cashback exception', e);
     return 0;
   }
 }
@@ -88,11 +111,20 @@ async function requireUser(req: Request): Promise<{ id: string; email?: string }
 }
 
 // ---------- Provider adapters ----------
-type ProviderResult = { ok: boolean; recoverable: boolean; status: number; body: any; error?: string; reference?: string };
+type ProviderResult = {
+  ok: boolean;
+  recoverable: boolean;
+  status: number;
+  body: any;
+  error?: string;
+  reference?: string;
+};
 
 function parseSmeapiSuccess(b: any): boolean {
   if (!b || typeof b !== 'object') return false;
-  const s = String(b.Status ?? b.status ?? b.response_code ?? b.status_code ?? '').toLowerCase().trim();
+  const s = String(b.Status ?? b.status ?? b.response_code ?? b.status_code ?? '')
+    .toLowerCase()
+    .trim();
   if (['successful', 'success', 'completed', 'complete', '200', '000'].includes(s)) return true;
   if (b.success === true || b.successful === true) return true;
   const msg = String(b.message ?? b.msg ?? '').toLowerCase();
@@ -104,7 +136,9 @@ function parseSmeplugSuccess(b: any): boolean {
   const raw = b.status ?? b.Status;
   if (raw === true) return true;
   if (raw === false) return false;
-  const s = String(raw ?? '').toLowerCase().trim();
+  const s = String(raw ?? '')
+    .toLowerCase()
+    .trim();
   if (['success', 'successful', 'completed', 'complete', 'true', '1'].includes(s)) return true;
   if (['failed', 'failure', 'error', 'false', '0'].includes(s)) return false;
   if (b.success === true) return true;
@@ -115,7 +149,14 @@ function parseSmeplugSuccess(b: any): boolean {
 }
 
 function smeplugReference(b: any): string | undefined {
-  return b?.reference || b?.data?.reference || b?.data?.ident || b?.ident || b?.transaction_id || b?.data?.transaction_id;
+  return (
+    b?.reference ||
+    b?.data?.reference ||
+    b?.data?.ident ||
+    b?.ident ||
+    b?.transaction_id ||
+    b?.data?.transaction_id
+  );
 }
 
 function isRecoverable(status: number, body: any): boolean {
@@ -123,7 +164,9 @@ function isRecoverable(status: number, body: any): boolean {
   if (status === 0 || status === 408 || status === 429) return true;
   const msg = String(body?.msg ?? body?.message ?? body?.error ?? '').toLowerCase();
   if (!msg) return status >= 500;
-  return /(unavailable|timeout|temporarily|maintenance|try again|network|internal|down|busy|not available)/i.test(msg);
+  return /(unavailable|timeout|temporarily|maintenance|try again|network|internal|down|busy|not available)/i.test(
+    msg
+  );
 }
 
 async function callSmeapi(path: string, body: any): Promise<ProviderResult> {
@@ -140,14 +183,19 @@ async function callSmeapi(path: string, body: any): Promise<ProviderResult> {
       body: JSON.stringify(body),
     });
     const text = await res.text();
-    let b: any; try { b = JSON.parse(text); } catch { b = { raw: text }; }
+    let b: any;
+    try {
+      b = JSON.parse(text);
+    } catch {
+      b = { raw: text };
+    }
     const success = res.ok && parseSmeapiSuccess(b);
     return {
       ok: success,
       recoverable: !success && isRecoverable(res.status, b),
       status: res.status,
       body: b,
-      error: success ? undefined : (b?.msg || b?.message || b?.error || `HTTP ${res.status}`),
+      error: success ? undefined : b?.msg || b?.message || b?.error || `HTTP ${res.status}`,
       reference: b?.reference || b?.ident || b?.transaction_id,
     };
   } catch (e) {
@@ -160,13 +208,26 @@ async function callSmeplug(path: string, body: any): Promise<ProviderResult> {
   try {
     const res = await fetch(`\( {SMEPLUG_BASE} \){path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SMEPLUG_KEY}`, Accept: 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${SMEPLUG_KEY}`,
+        Accept: 'application/json',
+      },
       body: JSON.stringify(body),
     });
     const text = await res.text();
-    let b: any; try { b = JSON.parse(text); } catch { b = { raw: text }; }
+    let b: any;
+    try {
+      b = JSON.parse(text);
+    } catch {
+      b = { raw: text };
+    }
     const success = parseSmeplugSuccess(b);
-    const errMsg = b?.msg || b?.message || b?.error || (success ? undefined : `Provider returned failure (HTTP ${res.status})`);
+    const errMsg =
+      b?.msg ||
+      b?.message ||
+      b?.error ||
+      (success ? undefined : `Provider returned failure (HTTP ${res.status})`);
     return {
       ok: success,
       recoverable: !success && isRecoverable(res.status, b),
@@ -180,41 +241,94 @@ async function callSmeplug(path: string, body: any): Promise<ProviderResult> {
   }
 }
 
-async function providerBuyAirtime(provider: string, network: string, phone: string, amount: number): Promise<ProviderResult> {
-  const NET = network.toUpperCase();
+async function providerBuyAirtime(
+  provider: string,
+  network: string,
+  phone: string,
+  amount: number
+): Promise<ProviderResult> {
+  const NET = normalizeNetwork(network);
   if (provider === 'smeapi') {
-    const id = SMEAPI_NET_ID[NET]; if (!id) return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEAPI: ${NET}` };
-    return callSmeapi('/airtime/', { network: id, amount, mobile_number: phone, Ported_number: true, airtime_type: 'VTU', pin: SMEAPI_PIN });
+    const id = SMEAPI_NET_ID[NET];
+    if (!id) return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEAPI: ${NET}` };
+    return callSmeapi('/airtime/', {
+      network: id,
+      amount,
+      mobile_number: phone,
+      Ported_number: true,
+      airtime_type: 'VTU',
+      pin: SMEAPI_PIN,
+    });
   }
   if (provider === 'smeplug') {
-    const id = SMEPLUG_NET_ID[NET]; if (!id) return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEPlug: ${NET}` };
-    return callSmeplug('/airtime/purchase', { network_id: id, amount, phone, customer_reference: `D4M-${Date.now()}` });
+    const id = SMEPLUG_NET_ID[NET];
+    if (!id) return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEPlug: ${NET}` };
+    return callSmeplug('/airtime/purchase', {
+      network_id: id,
+      amount,
+      phone,
+      customer_reference: `D4M-${Date.now()}`,
+    });
   }
   return { ok: false, recoverable: false, status: 0, body: null, error: `Unknown provider: ${provider}` };
 }
 
-async function providerBuyData(provider: string, network: string, planId: string, phone: string): Promise<ProviderResult> {
-  const NET = network.toUpperCase();
+async function providerBuyData(
+  provider: string,
+  network: string,
+  planId: string,
+  phone: string
+): Promise<ProviderResult> {
+  const NET = normalizeNetwork(network);
   if (provider === 'smeapi') {
-    const id = SMEAPI_NET_ID[NET]; if (!id) return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEAPI: ${NET}` };
-    return callSmeapi('/data/', { network: id, mobile_number: phone, plan: planId, Ported_number: true, pin: SMEAPI_PIN });
+    const id = SMEAPI_NET_ID[NET];
+    if (!id) return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEAPI: ${NET}` };
+    return callSmeapi('/data/', {
+      network: id,
+      mobile_number: phone,
+      plan: planId,
+      Ported_number: true,
+      pin: SMEAPI_PIN,
+    });
   }
   if (provider === 'smeplug') {
-    const id = SMEPLUG_NET_ID[NET]; if (!id) return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEPlug: ${NET}` };
-    return callSmeplug('/data/purchase', { network_id: id, plan_id: planId, phone, customer_reference: `D4M-${Date.now()}` });
+    const id = SMEPLUG_NET_ID[NET];
+    if (!id) return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEPlug: ${NET}` };
+    return callSmeplug('/data/purchase', {
+      network_id: id,
+      plan_id: planId,
+      phone,
+      customer_reference: `D4M-${Date.now()}`,
+    });
   }
   return { ok: false, recoverable: false, status: 0, body: null, error: `Unknown provider: ${provider}` };
 }
 
 // ---------- Logging ----------
-async function logApi(svc: any, args: { user_id: string; provider: string; endpoint: string; request: any; response: any; status: number; error?: string }) {
+async function logApi(
+  svc: any,
+  args: {
+    user_id: string;
+    provider: string;
+    endpoint: string;
+    request: any;
+    response: any;
+    status: number;
+    error?: string;
+  }
+) {
   try {
     await svc.from('activity_logs').insert({
       user_id: args.user_id,
       user_email: null,
       event: `vtu:\( {args.provider}: \){args.endpoint}`,
       category: 'vtu',
-      details: { request: args.request, response: args.response, status: args.status, error: args.error },
+      details: {
+        request: args.request,
+        response: args.response,
+        status: args.status,
+        error: args.error,
+      },
     });
   } catch {}
 }
@@ -240,27 +354,33 @@ Deno.serve(async (req) => {
 
 // ---------- Airtime ----------
 async function handleAirtime(svc: any, user: { id: string; email?: string }, p: any) {
-  const network = String(p.network || '').toUpperCase().trim();
+  const network = normalizeNetwork(String(p.network || ''));
   const phone = String(p.phone || '').trim();
   const amount = Number(p.amount);
 
   if (!/^0[789][01]\d{8}$/.test(phone)) return fail('Invalid Nigerian phone number');
   if (!['MTN', 'GLO', 'AIRTEL', '9MOBILE'].includes(network)) return fail('Unsupported network');
-  if (!Number.isFinite(amount) || amount < 50 || amount > 1_000_000) return fail('Amount must be between ₦50 and ₦1,000,000');
+  if (!Number.isFinite(amount) || amount < 50 || amount > 1_000_000) {
+    return fail('Amount must be between ₦50 and ₦1,000,000');
+  }
 
-  const charge = await getServiceCharge(svc, "airtime", amount);
+  const charge = await getServiceCharge(svc, 'airtime', amount);
   const total = amount + charge;
 
   let holdId: string;
   try {
     const { data, error } = await svc.rpc('create_wallet_hold', {
-      _user_id: user.id, _amount: total, _purpose: 'airtime',
+      _user_id: user.id,
+      _amount: total,
+      _purpose: 'airtime',
       _meta: { network, phone, product_amount: amount, charge },
     });
     if (error) throw error;
     holdId = data as string;
   } catch (e: any) {
-    return fail(e?.message?.includes('Insufficient') ? 'Insufficient wallet balance' : (e?.message || 'Could not reserve funds'));
+    return fail(
+      e?.message?.includes('Insufficient') ? 'Insufficient wallet balance' : e?.message || 'Could not reserve funds'
+    );
   }
 
   const attempts: Array<{ provider: string; result: ProviderResult }> = [];
@@ -271,17 +391,35 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
   for (const provider of providersOrder) {
     const r = await providerBuyAirtime(provider, network, phone, amount);
     attempts.push({ provider, result: r });
-    await logApi(svc, { user_id: user.id, provider, endpoint: 'buy-airtime', request: { network, phone, amount }, response: r.body, status: r.status, error: r.error });
-    if (r.ok) { finalResult = r; finalProvider = provider; break; }
-    if (!r.recoverable) { finalResult = r; finalProvider = provider; break; }
+    await logApi(svc, {
+      user_id: user.id,
+      provider,
+      endpoint: 'buy-airtime',
+      request: { network, phone, amount },
+      response: r.body,
+      status: r.status,
+      error: r.error,
+    });
+    if (r.ok) {
+      finalResult = r;
+      finalProvider = provider;
+      break;
+    }
+    if (!r.recoverable) {
+      finalResult = r;
+      finalProvider = provider;
+      break;
+    }
   }
 
   if (finalResult?.ok) {
     const { data: tx, error: cErr } = await svc.rpc('commit_wallet_hold', {
-      _hold_id: holdId, _type: 'airtime',
+      _hold_id: holdId,
+      _type: 'airtime',
       _description: `\( {network} airtime ₦ \){amount} to ${phone}`,
       _meta: {
-        network, phone,
+        network,
+        phone,
         product_amount: amount,
         cost_price: amount,
         charge,
@@ -297,13 +435,19 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     }
 
     const txId = (tx as any)?.id || null;
-    const cashback = await awardCashbackIfAny(svc, user.id, "airtime", amount, txId);
+    const cashback = await awardCashbackIfAny(svc, user.id, 'airtime', amount, txId);
 
     tg('Airtime Success', '📱', {
-      Provider: finalProvider, User: user.email || user.id, Network: network, Phone: phone,
-      Amount: `₦\( {amount}`, Cashback: cashback > 0 ? `₦ \){cashback}` : '0',
-      Retries: attempts.length - 1, Reference: finalResult.reference || '-',
+      Provider: finalProvider,
+      User: user.email || user.id,
+      Network: network,
+      Phone: phone,
+      Amount: `₦${amount}`,
+      Cashback: cashback > 0 ? `₦${cashback}` : '0',
+      Retries: attempts.length - 1,
+      Reference: finalResult.reference || '-',
     });
+
     return ok({
       tx_id: txId,
       charge,
@@ -315,12 +459,25 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     });
   }
 
-  await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: finalResult?.error || 'provider-failed' });
+  await svc.rpc('release_wallet_hold', {
+    _hold_id: holdId,
+    _reason: finalResult?.error || 'provider-failed',
+  });
   tg('Airtime Failed', '❌', {
-    User: user.email || user.id, Network: network, Phone: phone, Amount: `₦${amount}`,
+    User: user.email || user.id,
+    Network: network,
+    Phone: phone,
+    Amount: `₦${amount}`,
     Attempts: attempts.map((a) => `\( {a.provider}: \){a.result.error || 'err'}`).join(' | '),
   });
-  return fail(finalResult?.error || 'Airtime purchase failed', { refunded: true, attempts: attempts.map((a) => ({ provider: a.provider, error: a.result.error, status: a.result.status })) });
+  return fail(finalResult?.error || 'Airtime purchase failed', {
+    refunded: true,
+    attempts: attempts.map((a) => ({
+      provider: a.provider,
+      error: a.result.error,
+      status: a.result.status,
+    })),
+  });
 }
 
 // ---------- Data ----------
@@ -330,59 +487,90 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
   if (!/^0[789][01]\d{8}$/.test(phone)) return fail('Invalid Nigerian phone number');
   if (!planIdInternal) return fail('Plan is required');
 
-  const { data: plan, error: pErr } = await svc.from('data_plans').select('*').eq('id', planIdInternal).maybeSingle();
+  const { data: plan, error: pErr } = await svc
+    .from('data_plans')
+    .select('*')
+    .eq('id', planIdInternal)
+    .maybeSingle();
   if (pErr || !plan) return fail('Selected plan not found');
   if (!plan.is_active) return fail('Selected plan is not available');
 
-  const rawNetwork = String(plan.network || '').trim();
-  const NETWORK_BY_ID: Record<string, string> = {
-    "1": "MTN",
-    "2": "GLO",
-    "3": "9MOBILE",
-    "4": "AIRTEL",
-  };
-  const network = (NETWORK_BY_ID[rawNetwork] || rawNetwork).toUpperCase();
+  const network = normalizeNetwork(String(plan.network || ''));
   const sellingPrice = Number(plan.selling_price);
-  const charge = await getServiceCharge(svc, "data", sellingPrice);
+  const charge = await getServiceCharge(svc, 'data', sellingPrice);
   const total = sellingPrice + charge;
 
   let holdId: string;
   try {
     const { data, error } = await svc.rpc('create_wallet_hold', {
-      _user_id: user.id, _amount: total, _purpose: 'data',
-      _meta: { plan_id: plan.id, provider: plan.provider, network, phone, product_amount: sellingPrice, charge },
+      _user_id: user.id,
+      _amount: total,
+      _purpose: 'data',
+      _meta: {
+        plan_id: plan.id,
+        provider: plan.provider,
+        network,
+        phone,
+        product_amount: sellingPrice,
+        charge,
+      },
     });
     if (error) throw error;
     holdId = data as string;
   } catch (e: any) {
-    return fail(e?.message?.includes('Insufficient') ? 'Insufficient wallet balance' : (e?.message || 'Could not reserve funds'));
+    return fail(
+      e?.message?.includes('Insufficient') ? 'Insufficient wallet balance' : e?.message || 'Could not reserve funds'
+    );
   }
 
   const primaryProvider = String(plan.provider || plan.supplier || 'smeapi');
   const secondaryProvider = primaryProvider === 'smeapi' ? 'smeplug' : 'smeapi';
 
-  const { data: alt } = await svc.from('data_plans').select('*')
+  const { data: alt } = await svc
+    .from('data_plans')
+    .select('*')
     .eq('provider', secondaryProvider)
     .eq('network', plan.network)
     .eq('data_size', plan.data_size)
     .eq('validity', plan.validity)
     .eq('is_active', true)
-    .limit(1).maybeSingle();
+    .limit(1)
+    .maybeSingle();
 
   const attempts: Array<{ provider: string; result: ProviderResult; plan_id: string }> = [];
   let finalResult: ProviderResult | null = null;
   let finalProvider = '';
   let finalProviderPlanId = '';
 
-  const tryList: Array<{ provider: string; providerPlanId: string }> = [{ provider: primaryProvider, providerPlanId: plan.plan_id }];
+  const tryList: Array<{ provider: string; providerPlanId: string }> = [
+    { provider: primaryProvider, providerPlanId: plan.plan_id },
+  ];
   if (alt) tryList.push({ provider: secondaryProvider, providerPlanId: alt.plan_id });
 
   for (const t of tryList) {
     const r = await providerBuyData(t.provider, network, t.providerPlanId, phone);
     attempts.push({ provider: t.provider, result: r, plan_id: t.providerPlanId });
-    await logApi(svc, { user_id: user.id, provider: t.provider, endpoint: 'buy-data', request: { network, plan_id: t.providerPlanId, phone }, response: r.body, status: r.status, error: r.error });
-    if (r.ok) { finalResult = r; finalProvider = t.provider; finalProviderPlanId = t.providerPlanId; break; }
-    if (!r.recoverable) { finalResult = r; finalProvider = t.provider; finalProviderPlanId = t.providerPlanId; break; }
+    await logApi(svc, {
+      user_id: user.id,
+      provider: t.provider,
+      endpoint: 'buy-data',
+      request: { network, plan_id: t.providerPlanId, phone },
+      response: r.body,
+      status: r.status,
+      error: r.error,
+    });
+    if (r.ok) {
+      finalResult = r;
+      finalProvider = t.provider;
+      finalProviderPlanId = t.providerPlanId;
+      break;
+    }
+    if (!r.recoverable) {
+      finalResult = r;
+      finalProvider = t.provider;
+      finalProviderPlanId = t.providerPlanId;
+      break;
+    }
   }
 
   if (finalResult?.ok) {
@@ -390,15 +578,19 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     const dataProfit = Math.max(0, sellingPrice - costPrice);
 
     const { data: tx, error: cErr } = await svc.rpc('commit_wallet_hold', {
-      _hold_id: holdId, _type: 'data',
+      _hold_id: holdId,
+      _type: 'data',
       _description: `${network} ${plan.data_size} / ${plan.validity} to ${phone}`,
       _meta: {
-        plan_id: plan.id, network, phone,
+        plan_id: plan.id,
+        network,
+        phone,
         product_amount: sellingPrice,
         cost_price: costPrice,
         charge,
         profit: dataProfit,
-        provider: finalProvider, original_provider: primaryProvider,
+        provider: finalProvider,
+        original_provider: primaryProvider,
         provider_plan_id: finalProviderPlanId,
         retry_count: attempts.length - 1,
         supplier_reference: finalResult.reference,
@@ -411,14 +603,19 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     }
 
     const txId = (tx as any)?.id || null;
-    const cashback = await awardCashbackIfAny(svc, user.id, "data", sellingPrice, txId);
+    const cashback = await awardCashbackIfAny(svc, user.id, 'data', sellingPrice, txId);
 
     tg('Data Success', '📶', {
-      Provider: finalProvider, User: user.email || user.id, Network: network, Phone: phone,
-      Plan: `${plan.data_size} / \( {plan.validity}`, Amount: `₦ \){sellingPrice}`,
+      Provider: finalProvider,
+      User: user.email || user.id,
+      Network: network,
+      Phone: phone,
+      Plan: `${plan.data_size} / ${plan.validity}`,
+      Amount: `₦${sellingPrice}`,
       Cashback: cashback > 0 ? `₦${cashback}` : '0',
       Retries: attempts.length - 1,
     });
+
     return ok({
       tx_id: txId,
       charge,
@@ -430,10 +627,4 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     });
   }
 
-  await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: finalResult?.error || 'provider-failed' });
-  tg('Data Failed', '❌', {
-    User: user.email || user.id, Network: network, Phone: phone, Plan: `${plan.data_size} / ${plan.validity}`,
-    Attempts: attempts.map((a) => `\( {a.provider}: \){a.result.error || 'err'}`).join(' | '),
-  });
-  return fail(finalResult?.error || 'Data purchase failed', { refunded: true, attempts: attempts.map((a) => ({ provider: a.provider, error: a.result.error, status: a.result.status })) });
-      }
+  await svc.rpc('release_wal
