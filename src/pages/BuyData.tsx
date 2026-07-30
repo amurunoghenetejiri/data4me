@@ -24,12 +24,12 @@ function normalizeNetwork(raw: string, provider?: string): NetworkId | null {
   if (v === "etisalat") return "9mobile";
 
   const p = String(provider || "").toLowerCase();
-  // SME Plug: 1=MTN, 2=AIRTEL, 3=GLO, 4=9MOBILE
+  // SME Plug: 1=MTN, 2=AIRTEL, 3=9MOBILE, 4=GLO
   if (p.includes("smeplug")) {
     if (v === "1") return "mtn";
     if (v === "2") return "airtel";
-    if (v === "3") return "glo";
-    if (v === "4") return "9mobile";
+    if (v === "3") return "9mobile";
+    if (v === "4") return "glo";
   }
   // SME API: 1=MTN, 2=GLO, 3=9MOBILE, 4=AIRTEL
   if (p.includes("smeapi") || !p) {
@@ -39,7 +39,7 @@ function normalizeNetwork(raw: string, provider?: string): NetworkId | null {
     if (v === "4") return "airtel";
   }
   return null;
-}
+    }
 
 export default function BuyData() {
   const { user, openAuth, wallet, addTransaction, settings, pushNotification, refreshUser } = useApp();
