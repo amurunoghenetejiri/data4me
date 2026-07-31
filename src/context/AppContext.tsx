@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyTelegram } from "@/lib/telegram";
 import { parseUserAgent, getClientIp } from "@/lib/clientInfo";
+import { registerPushToken } from "@/lib/notifications";
 
 export interface User {
   id?: string;
@@ -301,6 +302,13 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
   // Realtime: wallet, transactions, notifications - FIXED
   useEffect(() => {
     if (!user?.id) return;
+
+    useEffect(() => {
+  if (!user?.id) return;
+  registerPushToken(user.id).catch(() => {
+    // ignore push errors so login still works
+  });
+}, [user?.id]);
     
     const ch = supabase
       .channel(`user-${user.id}`)
