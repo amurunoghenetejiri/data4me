@@ -90,11 +90,11 @@ const [psAmount, setPsAmount] = useState<number | "">("");
 
   async function payWithPaystack() {
     if (!user) { openAuth("login"); return; }
-    if (psAmount < 100) return toast.error("Minimum funding is ₦100");
+    if (Number(psAmount) < 100) return toast.error("Minimum funding is ₦100");
     setPsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("paystack-initialize", {
-        body: { amount: psAmount, email: user.email || `${user.username}@data4me.ng`, username: user.username },
+        body: { amount: Number(psAmount), email: user.email || `${user.username}@data4me.ng`, username: user.username },
       });
       if (error || !data?.authorization_url) throw new Error(error?.message || "Could not start checkout");
       window.location.href = data.authorization_url;
@@ -109,14 +109,14 @@ const [psAmount, setPsAmount] = useState<number | "">("");
   async function submitFunding() {
     if (!user) { openAuth("login"); return; }
     if (pendingFunding) return toast.error("You already have a pending funding request. Wait for admin review.");
-    if (amount < 100) return toast.error("Minimum funding is ₦100");
+    if (Number(amount) < 100) return toast.error("Minimum funding is ₦100");
     if (!receipt) return toast.error("Please upload your payment receipt (JPG, PNG, or PDF)");
     const valid = ["image/jpeg", "image/png", "application/pdf"];
     if (!valid.includes(receipt.type)) return toast.error("Only JPG, PNG, or PDF receipts are allowed");
     if (receipt.size > 5 * 1024 * 1024) return toast.error("Receipt must be under 5MB");
     setSubmitting(true);
     try {
-      await submitFundingRequest({ amount, bank, receiptFile: receipt });
+      await submitFundingRequest({ amount: Number(amount), bank, receiptFile: receipt });
       setStep("submitted");
       setOpen(true);
       setReceipt(null);
@@ -395,7 +395,7 @@ const [psAmount, setPsAmount] = useState<number | "">("");
 ))}
           </div>
           <Button onClick={payWithPaystack} disabled={psLoading} className="w-full mt-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 text-white">
-            {psLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Initializing…</> : <>Pay ₦{psAmount.toLocaleString()} with Paystack</>}
+            {psLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Initializing…</> : <>Pay ₦{Number(psAmount).toLocaleString()} with Paystack</>}
           </Button>
           <p className="text-[11px] text-muted-foreground mt-2 text-center">Secure checkout · Cards, USSD, Bank Transfer</p>
         </Card>

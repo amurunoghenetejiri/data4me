@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { notifyTelegram } from "@/lib/telegram";
 import { parseUserAgent, getClientIp } from "@/lib/clientInfo";
-import { registerPushToken } from "@/lib/notifications";
+import { registerPushToken, listenForegroundMessages } from "@/lib/notifications";
+import { playNotificationSound } from "@/lib/notificationSound";
+import { normalizeType } from "@/lib/notificationTypes";
 
 export interface User {
   id?: string;
@@ -60,9 +62,14 @@ interface AppState {
   settings: PaymentSettings;
   updateSettings: (s: Partial<PaymentSettings>) => void;
 
-  notifications: { id: string; title: string; body: string; date: string; read: boolean }[];
-  pushNotification: (n: { title: string; body: string }) => void;
+  notifications: AppNotification[];
+  unreadCount: number;
+  pushNotification: (n: { title: string; body: string; type?: string; actionUrl?: string }) => void;
   markAllRead: () => void;
+  markRead: (id: string) => void;
+  removeNotification: (id: string) => void;
+  clearNotifications: () => void;
+  refreshNotifications: () => Promise<void>;
 
   theme: "light" | "dark";
   toggleTheme: () => void;
@@ -77,6 +84,32 @@ interface AppState {
   allUsers: { username: string; email: string; phone: string; createdAt?: string; referralCode?: string }[];
 
   refreshUser: () => Promise<void>;
+}
+
+function mapNotification(n: any): AppNotification {
+  return {
+    id: n.id,
+    title: n.title,
+    body: n.body || n.message || "",
+    date: n.created_at,
+    read: !!(n.read ?? n.is_read),
+    type: normalizeType(n.type),
+    icon: n.icon ?? null,
+    image: n.image ?? null,
+    actionUrl: n.action_url ?? null,
+  };
+}
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  body: string;
+  date: string;
+  read: boolean;
+  type: string;
+  icon?: string | null;
+  image?: string | null;
+  actionUrl?: string | null;
 }
 
 export interface FundingRequest {
@@ -94,6 +127,7 @@ const defaultSettings: PaymentSettings = {
   bankName: "palmpay",
   accountName: "Amurun Precious",
   accountNumber: "8165906606",
+  ussdCode: "*652#",
   supportEmail: "data4me@gmail.com",
   paystackPublicKey: "",
   paystackMode: "test",
@@ -172,7 +206,7 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
       supabase.from("wallets").select("balance").eq("user_id", uid).maybeSingle(),
       supabase.rpc("wallet_available", { _user_id: uid }),
       supabase.from("transactions").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(100),
-      supabase.from("notifications").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(50),
+      supabase.from("notifications").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(100),
       supabase.from("user_roles").select("role").eq("user_id", uid),
       supabase.from("funding_requests").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(20),
     ]);
@@ -230,9 +264,7 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
       phone: t.meta?.phone,
       meta: t.meta,
     })));
-    setNotifications(((notifRes.data as any[]) || []).map((n) => ({
-      id: n.id, title: n.title, body: n.body, date: n.created_at, read: !!n.read,
-    })));
+    setNotifications(((notifRes.data as any[]) || []).map(mapNotification));
     setIsAdmin(!!rolesRes.data?.some((r: any) => r.role === "admin"));
   }
 
@@ -281,7 +313,7 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
     if (!user?.id) return;
 
     const touch = () => {
-      supabase.rpc("touch_last_seen").then(() => {}).catch(() => {});
+      void (async () => { try { await supabase.rpc("touch_last_seen"); } catch { /* ignore */ } })();
     };
 
     touch();
@@ -299,17 +331,31 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
     };
   }, [user?.id]);
 
+  // Web push: register the FCM token and listen for foreground messages
+  useEffect(() => {
+    if (!user?.id) return;
+    let unsub: (() => void) | undefined;
+
+    registerPushToken(user.id).catch(() => {
+      // ignore push errors so login still works
+    });
+
+    listenForegroundMessages((payload: any) => {
+      const title = payload?.notification?.title || payload?.data?.title || "DATA4ME";
+      const body = payload?.notification?.body || payload?.data?.body || "";
+      playNotificationSound(payload?.data?.type);
+      toast.info(title, { description: body });
+    })
+      .then((fn) => { unsub = fn; })
+      .catch(() => {});
+
+    return () => { unsub?.(); };
+  }, [user?.id]);
+
   // Realtime: wallet, transactions, notifications - FIXED
   useEffect(() => {
     if (!user?.id) return;
 
-    useEffect(() => {
-  if (!user?.id) return;
-  registerPushToken(user.id).catch(() => {
-    // ignore push errors so login still works
-  });
-}, [user?.id]);
-    
     const ch = supabase
       .channel(`user-${user.id}`)
       // Wallet updates
@@ -333,16 +379,18 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
       // Notification inserts - SHOW TOAST
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, (p) => {
         const n: any = p.new;
-        const newNotif = { id: n.id, title: n.title, body: n.body, date: n.created_at, read: !!n.read };
-        setNotifications((cur) => [newNotif, ...cur]);
-        
-        // Show toast notification to user immediately
-        if (n.title.includes("✅") || n.title.includes("Approved")) {
-          toast.success(n.title, { description: n.body });
-        } else if (n.title.includes("❌") || n.title.includes("Rejected")) {
-          toast.error(n.title, { description: n.body });
+        const newNotif = mapNotification(n);
+        setNotifications((cur) => (cur.some((x) => x.id === newNotif.id) ? cur : [newNotif, ...cur]));
+
+        playNotificationSound(newNotif.type);
+
+        const text = `${n.title || ""}`;
+        if (text.includes("✅") || /approv|success|credited/i.test(text)) {
+          toast.success(n.title, { description: newNotif.body });
+        } else if (text.includes("❌") || /reject|fail|declin/i.test(text)) {
+          toast.error(n.title, { description: newNotif.body });
         } else {
-          toast.info(n.title, { description: n.body });
+          toast.info(n.title, { description: newNotif.body });
         }
       })
       // Funding request status updates (approve/reject/cancel)
@@ -512,13 +560,39 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
     settings,
     updateSettings: (s) => setSettings((cur) => ({ ...cur, ...s })),
     notifications,
+    unreadCount: notifications.filter((n) => !n.read).length,
     pushNotification: (n) => {
-      setNotifications((cur) => [{ id: crypto.randomUUID(), title: n.title, body: n.body, date: new Date().toISOString(), read: false }, ...cur]);
-      if (user?.id) supabase.from("notifications").insert({ user_id: user.id, title: n.title, body: n.body });
+      const type = normalizeType(n.type);
+      const local: AppNotification = {
+        id: crypto.randomUUID(), title: n.title, body: n.body,
+        date: new Date().toISOString(), read: false, type, actionUrl: n.actionUrl || null,
+      };
+      setNotifications((cur) => [local, ...cur]);
+      playNotificationSound(type);
+      if (user?.id) {
+        supabase.from("notifications").insert({
+          user_id: user.id, title: n.title, body: n.body, message: n.body,
+          type, action_url: n.actionUrl || "/notifications",
+        } as any);
+      }
     },
     markAllRead: async () => {
       setNotifications((n) => n.map((x) => ({ ...x, read: true })));
-      if (user?.id) await supabase.from("notifications").update({ read: true } as any).eq("user_id", user.id).eq("read", false);
+      if (user?.id) await supabase.from("notifications").update({ read: true, is_read: true } as any).eq("user_id", user.id).eq("read", false);
+    },
+    markRead: (id) => {
+      setNotifications((cur) => cur.map((x) => (x.id === id ? { ...x, read: true } : x)));
+      if (user?.id) supabase.from("notifications").update({ read: true, is_read: true } as any).eq("id", id);
+    },
+    removeNotification: (id) => {
+      setNotifications((cur) => cur.filter((x) => x.id !== id));
+    },
+    clearNotifications: () => setNotifications([]),
+    refreshNotifications: async () => {
+      if (!user?.id) return;
+      const { data } = await supabase.from("notifications").select("*")
+        .eq("user_id", user.id).order("created_at", { ascending: false }).limit(100);
+      setNotifications(((data as any[]) || []).map(mapNotification));
     },
     theme,
     toggleTheme: () => {},

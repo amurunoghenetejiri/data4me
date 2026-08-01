@@ -29,5 +29,26 @@ messaging.onBackgroundMessage(function (payload) {
     icon: "/data4me-logo.png",
     badge: "/favicon.png",
     data: payload.data || {},
+    tag: (payload.data && payload.data.notification_id) || undefined,
+    image: (payload.notification && payload.notification.image) || undefined,
   });
+});
+
+self.addEventListener("notificationclick", function (event) {
+  event.notification.close();
+  var target = (event.notification.data && event.notification.data.action_url) || "/notifications";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        if ("focus" in list[i]) {
+          list[i].focus();
+          list[i].navigate(new URL(target, self.location.origin).href);
+          return;
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(target);
+      }
+    })
+  );
 });

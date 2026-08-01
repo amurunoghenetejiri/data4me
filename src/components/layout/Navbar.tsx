@@ -10,6 +10,7 @@ import { useState } from "react";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { getAvatar } from "@/lib/avatars";
+import { typeAccent, typeMeta, timeAgo } from "@/lib/notificationTypes";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 
@@ -42,7 +43,7 @@ const moreItems = [
 ];
 
 export function Navbar() {
-  const { user, openAuth, logout, notifications, markAllRead, wallet, hideBalance, toggleHideBalance, isAdmin } = useApp();
+  const { user, openAuth, logout, notifications, markAllRead, markRead, wallet, hideBalance, toggleHideBalance, isAdmin } = useApp();
   const loc = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
@@ -96,28 +97,48 @@ export function Navbar() {
 
           <DropdownMenu>
             <DropdownMenuTrigger className="relative h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 grid place-items-center rounded-full hover:bg-muted text-foreground">
-  <Bell className="h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5" />
-              {unread > 0 && <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />}
+              <Bell className={cn("h-4 w-4 sm:h-4.5 sm:w-4.5 md:h-5 md:w-5", unread > 0 && "animate-[wiggle_1.2s_ease-in-out_infinite]")} />
+              {unread > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 grid place-items-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none shadow">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuContent align="end" className="w-[min(92vw,22rem)]">
               <div className="flex items-center justify-between p-2">
-                <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>
-                <button onClick={markAllRead} className="text-xs text-primary hover:underline">Mark all read</button>
+                <DropdownMenuLabel className="p-0">
+                  Notifications {unread > 0 && <span className="text-xs text-muted-foreground font-normal">({unread} new)</span>}
+                </DropdownMenuLabel>
+                {unread > 0 && <button onClick={markAllRead} className="text-xs text-primary hover:underline">Mark all read</button>}
               </div>
               <DropdownMenuSeparator />
-              {notifications.slice(0, 6).map((n) => (
-                <div key={n.id} className="px-3 py-2 hover:bg-muted/60">
-                  <div className="flex items-center gap-2">
-                    <span className={cn("h-2 w-2 rounded-full", n.read ? "bg-muted-foreground/40" : "bg-primary")} />
-                    <p className="font-medium text-sm">{n.title}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground pl-4">{n.body}</p>
-                </div>
+              {notifications.length === 0 ? (
+                <p className="px-3 py-6 text-center text-sm text-muted-foreground">You're all caught up 🎉</p>
+              ) : notifications.slice(0, 6).map((n) => (
+                <Link
+                  key={n.id}
+                  to={n.actionUrl || "/notifications"}
+                  onClick={() => markRead(n.id)}
+                  className={cn("flex gap-2.5 px-3 py-2.5 hover:bg-muted/60", !n.read && "bg-primary/5")}
+                >
+                  <span className={cn("h-8 w-8 shrink-0 rounded-full grid place-items-center text-sm", typeAccent(n.type))}>
+                    {typeMeta(n.type).emoji}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className={cn("text-sm truncate", n.read ? "font-medium" : "font-semibold")}>{n.title}</span>
+                      {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
+                    </span>
+                    <span className="block text-xs text-muted-foreground line-clamp-2">{n.body}</span>
+                    <span className="block text-[10px] text-muted-foreground/80 mt-0.5">{timeAgo(n.date)}</span>
+                  </span>
+                </Link>
               ))}
               <DropdownMenuSeparator />
               <Link to="/notifications" className="block px-3 py-2 text-center text-sm text-primary hover:bg-muted/60">View all notifications</Link>
             </DropdownMenuContent>
           </DropdownMenu>
+
 
           {user ? (
             <DropdownMenu>
