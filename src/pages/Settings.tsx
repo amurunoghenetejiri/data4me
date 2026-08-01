@@ -46,20 +46,9 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="notifications">
-          <Card className="p-6 shadow-card space-y-4">
-            {[
-              ["Transaction alerts", "Get notified when a transaction succeeds or fails", true],
-              ["Promo offers", "Hear about discounts and new bundles", true],
-              ["Weekly summary", "A digest of your usage every Monday", false],
-              ["Email receipts", "Send receipts to my email address", true],
-            ].map(([title, desc, def]) => (
-              <div key={title as string} className="flex items-center justify-between gap-4 py-2 border-b last:border-0 border-border">
-                <div><p className="font-medium">{title as string}</p><p className="text-sm text-muted-foreground">{desc as string}</p></div>
-                <Switch defaultChecked={def as boolean} />
-              </div>
-            ))}
-          </Card>
+          <NotificationSettingsCard />
         </TabsContent>
+
 
         <TabsContent value="payment">
           <Card className="p-6 shadow-card">
