@@ -9,6 +9,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ShieldCheck } from "lucide-react";
 import { BankDetailsCard } from "@/components/BankDetailsCard";
+import { NotificationSettingsCard } from "@/components/NotificationSettingsCard";
 
 export default function Settings() {
   const { user, settings, updateSettings } = useApp();
