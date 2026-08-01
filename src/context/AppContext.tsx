@@ -206,7 +206,7 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
       supabase.from("wallets").select("balance").eq("user_id", uid).maybeSingle(),
       supabase.rpc("wallet_available", { _user_id: uid }),
       supabase.from("transactions").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(100),
-      supabase.from("notifications").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(50),
+      supabase.from("notifications").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(100),
       supabase.from("user_roles").select("role").eq("user_id", uid),
       supabase.from("funding_requests").select("*").eq("user_id", uid).order("created_at", { ascending: false }).limit(20),
     ]);
