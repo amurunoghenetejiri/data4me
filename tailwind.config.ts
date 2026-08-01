@@ -78,6 +78,12 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
+        wiggle: {
+          "0%, 60%, 100%": { transform: "rotate(0deg)" },
+          "70%": { transform: "rotate(-12deg)" },
+          "80%": { transform: "rotate(10deg)" },
+          "90%": { transform: "rotate(-6deg)" },
+        },
         "accordion-down": {
           from: {
             height: "0",
