@@ -86,6 +86,20 @@ interface AppState {
   refreshUser: () => Promise<void>;
 }
 
+function mapNotification(n: any): AppNotification {
+  return {
+    id: n.id,
+    title: n.title,
+    body: n.body || n.message || "",
+    date: n.created_at,
+    read: !!(n.read ?? n.is_read),
+    type: normalizeType(n.type),
+    icon: n.icon ?? null,
+    image: n.image ?? null,
+    actionUrl: n.action_url ?? null,
+  };
+}
+
 export interface AppNotification {
   id: string;
   title: string;
