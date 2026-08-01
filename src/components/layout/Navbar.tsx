@@ -10,6 +10,7 @@ import { useState } from "react";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { getAvatar } from "@/lib/avatars";
+import { typeAccent, typeMeta, timeAgo } from "@/lib/notificationTypes";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
 
@@ -42,7 +43,7 @@ const moreItems = [
 ];
 
 export function Navbar() {
-  const { user, openAuth, logout, notifications, markAllRead, wallet, hideBalance, toggleHideBalance, isAdmin } = useApp();
+  const { user, openAuth, logout, notifications, markAllRead, markRead, wallet, hideBalance, toggleHideBalance, isAdmin } = useApp();
   const loc = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
