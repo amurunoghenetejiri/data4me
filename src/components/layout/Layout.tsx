@@ -3,6 +3,7 @@ import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { AuthModal } from "../AuthModal";
 import { LiveActivity } from "../LiveActivity";
+import { AiAssistant } from "../AiAssistant";
 
 export default function Layout() {
   return (
@@ -16,6 +17,7 @@ export default function Layout() {
       <Footer />
       <AuthModal />
       <LiveActivity />
+      <AiAssistant />
     </div>
   );
 }
