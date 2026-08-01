@@ -13,7 +13,8 @@ export function AiAssistant() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hi 👋 I'm **D4 AI**, your Data4Me assistant.\n\nHow can I help you today? You can ask about data plans, airtime, funding your wallet, transactions, and more.",
+      content:
+        "Hi 👋 I'm **D4 AI**, your Data4Me assistant.\n\nHow can I help you today? You can ask about data plans, airtime, funding your wallet, transactions, and more.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -41,7 +42,9 @@ export function AiAssistant() {
     setIsTyping(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`,
@@ -49,7 +52,10 @@ export function AiAssistant() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${
+              session?.access_token ||
+              import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+            }`,
           },
           body: JSON.stringify({
             messages: newMessages.map((m) => ({
@@ -70,12 +76,13 @@ export function AiAssistant() {
         ...prev,
         { role: "assistant", content: data.reply },
       ]);
-    } catch (err: any) {
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I'm having trouble right now. Please try again in a moment.",
+          content:
+            "Sorry, I'm having trouble right now. Please try again in a moment.",
         },
       ]);
     } finally {
@@ -86,63 +93,81 @@ export function AiAssistant() {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* ========== FLOATING ORB BUTTON ========== */}
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          "fixed bottom-6 right-6 z-50 group",
-          "h-16 w-16 rounded-full",
-          "bg-black border-2 border-cyan-400",
-          "shadow-[0_0_20px_rgba(34,211,238,0.6)]",
+          "fixed bottom-6 right-5 z-50 group",
+          "h-[72px] w-[72px] rounded-full",
           "flex items-center justify-center",
           "transition-all duration-300",
-          "hover:scale-110 hover:shadow-[0_0_30px_rgba(34,211,238,0.9)]",
+          "hover:scale-110 active:scale-95",
           open && "scale-0 opacity-0 pointer-events-none"
         )}
         aria-label="Open D4 AI Assistant"
       >
-        {/* Glow ring */}
-        <div className="absolute inset-0 rounded-full border border-cyan-400/40 animate-ping opacity-20" />
-        
-        {/* Logo text */}
-        <div className="relative text-center leading-none">
-          <div className="text-cyan-400 font-bold text-lg tracking-tight flex items-center justify-center gap-0.5">
-            <span className="text-xs opacity-70">››</span>
-            <span>D4</span>
+        {/* Outer glow */}
+        <div className="absolute inset-[-8px] rounded-full bg-cyan-400/20 blur-xl group-hover:bg-cyan-400/40 transition-all" />
+
+        {/* Orbital rings */}
+        <div className="absolute inset-[-6px] rounded-full border border-cyan-400/30 group-hover:border-cyan-400/60 transition-all" />
+        <div className="absolute inset-[-12px] rounded-full border border-cyan-400/15 group-hover:border-cyan-400/30 transition-all animate-[spin_12s_linear_infinite]" />
+
+        {/* Main black orb */}
+        <div className="relative h-full w-full rounded-full bg-black border-2 border-cyan-400 shadow-[0_0_25px_rgba(34,211,238,0.7),inset_0_0_20px_rgba(34,211,238,0.15)] flex flex-col items-center justify-center overflow-hidden">
+          {/* Shine effect */}
+          <div className="absolute top-0 left-1/4 w-1/2 h-1/3 bg-gradient-to-b from-white/20 to-transparent rounded-full blur-sm" />
+
+          {/* Logo text */}
+          <div className="relative z-10 text-center leading-none select-none">
+            <div className="flex items-center justify-center gap-0.5">
+              <span className="text-cyan-300/80 text-[10px] tracking-tighter">››</span>
+              <span className="text-cyan-400 font-black text-[22px] tracking-tighter drop-shadow-[0_0_8px_rgba(34,211,238,0.9)]">
+                D4
+              </span>
+            </div>
+            <div className="text-white text-[11px] font-semibold tracking-wide -mt-0.5">
+              AI
+            </div>
           </div>
-          <div className="text-[10px] text-white font-medium -mt-0.5">AI</div>
         </div>
 
-        {/* Chat bubble indicator */}
-        <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-cyan-400 flex items-center justify-center">
-          <span className="text-[10px] text-black font-bold">•</span>
+        {/* Chat bubble */}
+        <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-cyan-400 border-2 border-black flex items-center justify-center shadow-[0_0_10px_rgba(34,211,238,0.8)]">
+          <div className="flex gap-[2px]">
+            <span className="h-1 w-1 rounded-full bg-black" />
+            <span className="h-1 w-1 rounded-full bg-black" />
+            <span className="h-1 w-1 rounded-full bg-black" />
+          </div>
         </div>
       </button>
 
-      {/* Chat Panel */}
+      {/* ========== CHAT PANEL ========== */}
       {open && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:justify-end p-0 sm:p-6">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           />
 
           {/* Chat window */}
-          <div className="relative w-full sm:w-[400px] h-[85vh] sm:h-[600px] max-h-[700px] bg-background border border-border sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-300">
+          <div className="relative w-full sm:w-[400px] h-[85vh] sm:h-[620px] max-h-[720px] bg-background border border-border sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 duration-300">
             
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-gradient-to-r from-cyan-950/40 to-background">
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-border bg-gradient-to-r from-cyan-950/50 via-background to-background">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-black border-2 border-cyan-400 flex items-center justify-center shadow-[0_0_12px_rgba(34,211,238,0.5)]">
-                  <div className="text-center leading-none">
-                    <div className="text-cyan-400 font-bold text-sm">D4</div>
-                    <div className="text-[8px] text-white">AI</div>
+                {/* Mini orb in header */}
+                <div className="relative h-11 w-11 rounded-full bg-black border-2 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.6)] flex flex-col items-center justify-center">
+                  <div className="flex items-center gap-0.5 leading-none">
+                    <span className="text-cyan-300/80 text-[8px]">››</span>
+                    <span className="text-cyan-400 font-black text-sm">D4</span>
                   </div>
+                  <div className="text-white text-[9px] font-semibold -mt-0.5">AI</div>
                 </div>
                 <div>
                   <p className="font-semibold text-sm">D4 AI Assistant</p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
                     Online • Ready to help
                   </p>
@@ -150,7 +175,7 @@ export function AiAssistant() {
               </div>
               <button
                 onClick={() => setOpen(false)}
-                className="h-8 w-8 rounded-full hover:bg-muted flex items-center justify-center transition"
+                className="h-9 w-9 rounded-full hover:bg-muted flex items-center justify-center transition"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -168,7 +193,7 @@ export function AiAssistant() {
                 >
                   <div
                     className={cn(
-                      "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap",
+                      "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap leading-relaxed",
                       m.role === "user"
                         ? "bg-cyan-600 text-white rounded-br-md"
                         : "bg-muted text-foreground rounded-bl-md"
@@ -198,15 +223,17 @@ export function AiAssistant() {
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" && !e.shiftKey && sendMessage()
+                  }
                   placeholder="Ask me anything about Data4Me..."
                   disabled={loading}
-                  className="flex-1 h-11 rounded-xl border border-border bg-muted/50 px-4 text-sm outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:opacity-50"
+                  className="flex-1 h-11 rounded-xl border border-border bg-muted/40 px-4 text-sm outline-none focus:ring-2 focus:ring-cyan-500/40 disabled:opacity-50"
                 />
                 <button
                   onClick={sendMessage}
                   disabled={loading || !input.trim()}
-                  className="h-11 w-11 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white flex items-center justify-center disabled:opacity-40 transition"
+                  className="h-11 w-11 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white flex items-center justify-center disabled:opacity-40 transition shadow-[0_0_12px_rgba(34,211,238,0.4)]"
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -224,4 +251,4 @@ export function AiAssistant() {
       )}
     </>
   );
-    }
+        }
