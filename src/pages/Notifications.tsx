@@ -62,7 +62,7 @@ export default function Notifications() {
 
   return (
     <div className="container py-8 sm:py-10 max-w-3xl">
-      <Seo title="Notifications | DATA4ME" description="All your DATA4ME alerts: wallet, purchases, cashback, referrals and security updates in one place." />
+      <Seo title="Notifications | DATA4ME" description="All your DATA4ME alerts: wallet, purchases, cashback, referrals and security updates in one place." path="/notifications" />
 
       <div className="flex items-start justify-between gap-3 mb-5">
         <div>
