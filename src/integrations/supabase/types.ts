@@ -225,7 +225,7 @@ export type Database = {
         Row: {
           action: string
           admin_email: string | null
-          admin_id: string
+          admin_id: string | null
           created_at: string
           details: Json
           id: string
@@ -236,7 +236,7 @@ export type Database = {
         Insert: {
           action: string
           admin_email?: string | null
-          admin_id: string
+          admin_id?: string | null
           created_at?: string
           details?: Json
           id?: string
@@ -247,7 +247,7 @@ export type Database = {
         Update: {
           action?: string
           admin_email?: string | null
-          admin_id?: string
+          admin_id?: string | null
           created_at?: string
           details?: Json
           id?: string
@@ -320,6 +320,30 @@ export type Database = {
           id?: string
           success?: boolean
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      cashback_settings: {
+        Row: {
+          is_active: boolean
+          label: string
+          percent: number
+          service: string
+          updated_at: string
+        }
+        Insert: {
+          is_active?: boolean
+          label: string
+          percent?: number
+          service: string
+          updated_at?: string
+        }
+        Update: {
+          is_active?: boolean
+          label?: string
+          percent?: number
+          service?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -679,29 +703,107 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_settings: {
+        Row: {
+          ai: boolean
+          airtime: boolean
+          cable: boolean
+          cashback: boolean
+          created_at: string
+          data: boolean
+          electricity: boolean
+          email: boolean
+          promotion: boolean
+          referral: boolean
+          security: boolean
+          system: boolean
+          updated_at: string
+          user_id: string
+          wallet: boolean
+          whatsapp: boolean
+        }
+        Insert: {
+          ai?: boolean
+          airtime?: boolean
+          cable?: boolean
+          cashback?: boolean
+          created_at?: string
+          data?: boolean
+          electricity?: boolean
+          email?: boolean
+          promotion?: boolean
+          referral?: boolean
+          security?: boolean
+          system?: boolean
+          updated_at?: string
+          user_id: string
+          wallet?: boolean
+          whatsapp?: boolean
+        }
+        Update: {
+          ai?: boolean
+          airtime?: boolean
+          cable?: boolean
+          cashback?: boolean
+          created_at?: string
+          data?: boolean
+          electricity?: boolean
+          email?: boolean
+          promotion?: boolean
+          referral?: boolean
+          security?: boolean
+          system?: boolean
+          updated_at?: string
+          user_id?: string
+          wallet?: boolean
+          whatsapp?: boolean
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
+          action_url: string | null
           body: string | null
           created_at: string
+          icon: string | null
           id: string
+          image: string | null
+          is_read: boolean | null
+          message: string | null
           read: boolean
+          sent_by: string | null
           title: string
+          type: string | null
           user_id: string | null
         }
         Insert: {
+          action_url?: string | null
           body?: string | null
           created_at?: string
+          icon?: string | null
           id?: string
+          image?: string | null
+          is_read?: boolean | null
+          message?: string | null
           read?: boolean
+          sent_by?: string | null
           title: string
+          type?: string | null
           user_id?: string | null
         }
         Update: {
+          action_url?: string | null
           body?: string | null
           created_at?: string
+          icon?: string | null
           id?: string
+          image?: string | null
+          is_read?: boolean | null
+          message?: string | null
           read?: boolean
+          sent_by?: string | null
           title?: string
+          type?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -855,8 +957,11 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          last_seen_at: string | null
           phone: string | null
           pin_hash: string | null
+          referral_code: string | null
+          referred_by: string | null
           username: string | null
         }
         Insert: {
@@ -872,8 +977,11 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          last_seen_at?: string | null
           phone?: string | null
           pin_hash?: string | null
+          referral_code?: string | null
+          referred_by?: string | null
           username?: string | null
         }
         Update: {
@@ -889,12 +997,101 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          last_seen_at?: string | null
           phone?: string | null
           pin_hash?: string | null
+          referral_code?: string | null
+          referred_by?: string | null
           username?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_tokens: {
+        Row: {
+          browser: string | null
+          created_at: string
+          device_name: string | null
+          device_type: string | null
+          id: string
+          last_seen: string
+          platform: string | null
+          token: string
+          user_id: string
+        }
+        Insert: {
+          browser?: string | null
+          created_at?: string
+          device_name?: string | null
+          device_type?: string | null
+          id?: string
+          last_seen?: string
+          platform?: string | null
+          token: string
+          user_id: string
+        }
+        Update: {
+          browser?: string | null
+          created_at?: string
+          device_name?: string | null
+          device_type?: string | null
+          id?: string
+          last_seen?: string
+          platform?: string | null
+          token?: string
+          user_id?: string
+        }
         Relationships: []
-  }
+      }
+      referral_rewards: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          referred_id: string
+          referrer_id: string
+          status: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          referred_id: string
+          referrer_id: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          referred_id?: string
+          referrer_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_rewards_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_rewards_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       secure_secrets: {
         Row: {
           name: string
@@ -1214,15 +1411,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_wallet: {
+        Args: {
+          _amount: number
+          _mode?: string
+          _reason?: string
+          _user_id: string
+        }
+        Returns: Json
+      }
       apply_charge: {
         Args: { _amount: number; _service: string }
         Returns: number
+      }
+      apply_referral: {
+        Args: { _code: string; _referred_id: string }
+        Returns: Json
       }
       approve_funding: {
         Args: { _id: string; _remark?: string }
         Returns: undefined
       }
       approve_withdrawal: { Args: { _id: string }; Returns: undefined }
+      award_cashback: {
+        Args: {
+          _amount: number
+          _service: string
+          _source_tx_id?: string
+          _user_id: string
+        }
+        Returns: number
+      }
       cancel_funding: {
         Args: { _id: string; _remark?: string }
         Returns: undefined
@@ -1304,6 +1523,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      generate_referral_code: { Args: never; Returns: string }
       has_pending_funding: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -1361,6 +1581,7 @@ export type Database = {
         }
         Returns: Json
       }
+      touch_last_seen: { Args: never; Returns: undefined }
       wallet_available: { Args: { _user_id: string }; Returns: number }
     }
     Enums: {
