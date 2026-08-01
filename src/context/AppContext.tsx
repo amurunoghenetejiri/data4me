@@ -94,6 +94,7 @@ const defaultSettings: PaymentSettings = {
   bankName: "palmpay",
   accountName: "Amurun Precious",
   accountNumber: "8165906606",
+  ussdCode: "*652#",
   supportEmail: "data4me@gmail.com",
   paystackPublicKey: "",
   paystackMode: "test",
@@ -281,7 +282,7 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
     if (!user?.id) return;
 
     const touch = () => {
-      supabase.rpc("touch_last_seen").then(() => {}).catch(() => {});
+      void (async () => { try { await supabase.rpc("touch_last_seen"); } catch { /* ignore */ } })();
     };
 
     touch();
