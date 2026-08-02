@@ -191,7 +191,7 @@ export default function D4AIAssistant() {
 
       {/* Panel */}
       {open && (
-        <div className="fixed inset-x-2 bottom-24 sm:inset-x-auto sm:right-6 sm:bottom-28 z-[59] w-auto sm:w-[400px] max-h-[72vh] flex flex-col rounded-3xl overflow-hidden d4-glass animate-scale-in">
+        <div className="fixed inset-x-2 bottom-40 sm:inset-x-auto sm:right-6 sm:bottom-28 z-[59] w-auto sm:w-[400px] max-h-[72vh] flex flex-col rounded-3xl overflow-hidden d4-glass animate-scale-in">
           <div className="flex items-center gap-3 px-4 py-3 border-b border-primary/20 bg-gradient-primary/10">
             <span className="d4-orb-core-sm grid place-items-center"><Sparkle className="h-4 w-4 text-primary-foreground" /></span>
             <div className="flex-1 min-w-0">
