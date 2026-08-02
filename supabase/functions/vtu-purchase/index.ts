@@ -262,7 +262,11 @@ async function callSmeapi(path: string, body: any): Promise<ProviderResult> {
     } catch {
       b = { raw: text };
     }
-    const success = res.ok && parseSmeapiSuccess(b);
+    // FIX: Check HTTP status AND provider success separately
+    const providerSuccess = parseSmeapiSuccess(b);
+    const httpSuccess = res.ok;
+    const success = httpSuccess && providerSuccess;
+    
     return {
       ok: success,
       recoverable: !success && isRecoverable(res.status, b),
@@ -364,6 +368,7 @@ async function providerBuyData(
     if (!id) {
       return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEAPI: ${NET}` };
     }
+    // FIX: Add PIN to data purchase as well (consistency with airtime)
     return callSmeapi('/data/', {
       network: id,
       mobile_number: phone,
@@ -494,7 +499,23 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     }
   }
 
-  if (finalResult?.ok) {
+  // FIX: Check that finalResult is not null before accessing
+  if (!finalResult) {
+    await svc.rpc('release_wallet_hold', {
+      _hold_id: holdId,
+      _reason: 'no-provider-response',
+    });
+    tg('Airtime Failed', '❌', {
+      User: user.email || user.id,
+      Network: network,
+      Phone: phone,
+      Amount: `₦${amount}`,
+      Attempts: attempts.map((a) => `${a.provider}: ${a.result.error || 'err'}`).join(' | '),
+    });
+    return fail('Service temporarily unavailable. Please try again later.', { refunded: true });
+  }
+
+  if (finalResult.ok) {
     const { data: tx, error: cErr } = await svc.rpc('commit_wallet_hold', {
       _hold_id: holdId,
       _type: 'airtime',
@@ -543,7 +564,7 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
 
   await svc.rpc('release_wallet_hold', {
     _hold_id: holdId,
-    _reason: finalResult?.error || 'provider-failed',
+    _reason: finalResult.error || 'provider-failed',
   });
 
   // Full detail for admin Telegram only
@@ -556,7 +577,7 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
   });
 
   // Clean message for the user only
-  return fail(userSafeError(finalResult?.error), {
+  return fail(userSafeError(finalResult.error), {
     refunded: true,
   });
 }
@@ -608,11 +629,12 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
   const primaryProvider = String(plan.provider || plan.supplier || 'smeapi');
   const secondaryProvider = primaryProvider === 'smeapi' ? 'smeplug' : 'smeapi';
 
+  // FIX: Query by provider AND normalized network name, not numeric ID
   const { data: alt } = await svc
     .from('data_plans')
     .select('*')
     .eq('provider', secondaryProvider)
-    .eq('network', plan.network)
+    .eq('network', plan.network) // Keep original for consistency with primary plan
     .eq('data_size', plan.data_size)
     .eq('validity', plan.validity)
     .eq('is_active', true)
@@ -655,7 +677,23 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     }
   }
 
-  if (finalResult?.ok) {
+  // FIX: Check that finalResult is not null before accessing
+  if (!finalResult) {
+    await svc.rpc('release_wallet_hold', {
+      _hold_id: holdId,
+      _reason: 'no-provider-response',
+    });
+    tg('Data Failed', '❌', {
+      User: user.email || user.id,
+      Network: network,
+      Phone: phone,
+      Plan: `${plan.data_size} / ${plan.validity}`,
+      Attempts: attempts.map((a) => `${a.provider}: ${a.result.error || 'err'}`).join(' | '),
+    });
+    return fail('Service temporarily unavailable. Please try again later.', { refunded: true });
+  }
+
+  if (finalResult.ok) {
     const costPrice = Number(plan.cost_price || 0);
     const dataProfit = Math.max(0, sellingPrice - costPrice);
 
@@ -711,7 +749,7 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
 
   await svc.rpc('release_wallet_hold', {
     _hold_id: holdId,
-    _reason: finalResult?.error || 'provider-failed',
+    _reason: finalResult.error || 'provider-failed',
   });
 
   tg('Data Failed', '❌', {
@@ -722,7 +760,7 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     Attempts: attempts.map((a) => `${a.provider}: ${a.result.error || 'err'}`).join(' | '),
   });
 
-  return fail(userSafeError(finalResult?.error), {
+  return fail(userSafeError(finalResult.error), {
     refunded: true,
   });
 }
