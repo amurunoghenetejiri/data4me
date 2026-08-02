@@ -35,8 +35,14 @@ export default function BuyAirtime() {
       toast.error("Minimum airtime is ₦50.");
       return;
     }
-    if (wallet < amount) {
-      toast.error("Insufficient wallet balance. Fund your wallet and try again.");
+
+    // Include an estimated service charge. The backend applies dynamic charges, but
+    // we fallback to a safe default of ₦1 so we don't open the PIN dialog when a
+    // wallet hold would later fail due to the small service charge.
+    const estimatedCharge = 1;
+    const required = amount + estimatedCharge;
+    if (wallet < required) {
+      toast.error(`Insufficient balance. You need ₦${required.toLocaleString()} (plan + charge).`);
       return;
     }
     setPinOpen(true);
@@ -72,7 +78,7 @@ export default function BuyAirtime() {
         phone,
         amount: result.total || amount,
         status: "success",
-        description: `\( {network.toUpperCase()} ₦ \){amount} airtime`,
+        description: `${network.toUpperCase()} ₦${amount.toLocaleString()} airtime`,
         meta: { tx_id: result.tx_id, charge: result.charge },
       });
 
@@ -174,7 +180,9 @@ export default function BuyAirtime() {
                 Processing...
               </>
             ) : (
-              <>Send Airtime ₦{amount.toLocaleString()}</>
+              <>
+                Send Airtime ₦{amount.toLocaleString()}
+              </>
             )}
           </Button>
         </Card>
