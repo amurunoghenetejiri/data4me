@@ -1,9 +1,11 @@
+import { lazy, Suspense } from "react";
 import { Outlet } from "react-router-dom";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { AuthModal } from "../AuthModal";
 import { LiveActivity } from "../LiveActivity";
 
+const D4AIAssistant = lazy(() => import("../ai/D4AIAssistant"));
 
 export default function Layout() {
   return (
@@ -17,7 +19,10 @@ export default function Layout() {
       <Footer />
       <AuthModal />
       <LiveActivity />
-
+      <Suspense fallback={null}>
+        <D4AIAssistant />
+      </Suspense>
     </div>
   );
 }
+
