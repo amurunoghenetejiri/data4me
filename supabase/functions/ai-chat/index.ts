@@ -2,8 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 function json(data: unknown, status = 200) {
@@ -13,105 +12,144 @@ function json(data: unknown, status = 200) {
   });
 }
 
-const SYSTEM_PROMPT = `You are **D4 AI**, the official smart assistant of **Data4Me** – a popular Nigerian VTU platform for buying airtime, data, electricity, cable TV, and more.
+const LANGS: Record<string, string> = {
+  en: "Reply in clear simple English.",
+  pcm: "Reply in friendly Nigerian Pidgin English.",
+  yo: "Reply in Yoruba (add a short English summary line at the end).",
+  ig: "Reply in Igbo (add a short English summary line at the end).",
+  ha: "Reply in Hausa (add a short English summary line at the end).",
+};
 
-Your personality:
-- Friendly, helpful, and professional
-- Speak simple clear English (you can use light Nigerian Pidgin when it feels natural)
-- Always be accurate about Data4Me services
-- Never invent prices or plans. If you don't know the exact current price, tell the user to check the app.
+const BASE_PROMPT = `You are **D4 AI**, the official assistant built into **Data4Me**, a Nigerian VTU platform (airtime, data, electricity, cable TV, wallet, transfers, referrals).
 
-What you can help with:
-1. How to buy airtime, data, electricity, cable
-2. How to fund wallet (Paystack or bank transfer)
-3. Explaining transaction status, refunds, pending funding
-4. Recommending the best data plans
-5. Answering FAQs about the platform
-6. Guiding users step-by-step
+Personality: friendly, professional, intelligent, fast, conversational. Keep answers short (2–6 sentences) and use markdown (bold, short lists) when helpful.
+
+You can help with:
+- Navigating the site and guiding users step by step
+- Registration, login, password reset, profile and KYC
+- Wallet balance, funding (Paystack card or bank transfer + receipt), transfers, withdrawals
+- Buying airtime, data, electricity and cable TV
+- Transaction status, history, receipts, failed/pending explanations
+- Referrals and rewards, notifications, FAQs, support tickets
+
+App routes you may link to (use markdown links):
+/buy-data, /buy-airtime, /electricity, /cable, /wallet, /transfer, /withdraw, /transactions, /referrals, /notifications, /profile, /settings, /support, /faq, /pricing, /bank
 
 Rules:
-- Never ask for or store passwords, PINs, or OTP
-- Never process real payments yourself
-- If a user wants to buy something, guide them to the correct page in the app
-- If the question is outside Data4Me, politely redirect them
-- Keep answers short and useful (prefer 2–6 sentences)
+- NEVER ask for or accept passwords, PINs or OTPs.
+- Never invent prices, plans or balances. Only use the live context given below; otherwise tell the user to check the page.
+- You cannot execute purchases yourself — guide the user to the right page and pre-fill instructions.
+- Stay on Data4Me topics.`;
 
-Current main services on Data4Me:
-- Airtime (MTN, Glo, Airtel, 9mobile)
-- Data plans
-- Electricity
-- Cable TV (DSTV, GOTV, Startimes)
-- Wallet funding
-- Referrals
+const ADMIN_PROMPT = `
+ADMIN MODE: this user is a Data4Me administrator. You may also:
+- Explain and summarise dashboard stats, revenue, deposits, withdrawals, transactions given in the context
+- Help with user management, products & pricing, analytics questions (guide to /admin pages)
+- WRITE professional notification copy on request: broadcasts, promotions, maintenance notices, wallet funding alerts, transaction success/pending/failed/refund messages, referral campaigns, security alerts, holiday announcements.
+  When drafting a notification, always output it as:
+  **Title:** ...
+  **Body:** ...
+  then tell them they can paste it in /admin/notifications to send to one user, selected users or everyone.`;
 
-Always end helpful answers with a short question if it makes sense (e.g. "Would you like me to guide you step by step?").`;
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+async function buildContext(supabase: any, userId: string | null, isAdmin: boolean, page?: string) {
+  const lines: string[] = [];
+  if (page) lines.push(`The user is currently on the page: ${page}`);
+  if (!userId) {
+    lines.push("The user is NOT logged in. Encourage sign in / registration for account actions.");
+    return lines.join("\n");
+  }
+  const [profile, wallet, txs] = await Promise.all([
+    supabase.from("profiles").select("full_name, username, email, phone, referral_code").eq("id", userId).maybeSingle(),
+    supabase.from("wallets").select("balance").eq("user_id", userId).maybeSingle(),
+    supabase.from("transactions").select("type, amount, status, created_at, reference, description")
+      .eq("user_id", userId).order("created_at", { ascending: false }).limit(8),
+  ]);
+  const p = profile.data;
+  lines.push(`Logged-in user: ${p?.full_name || "-"} (@${p?.username || "-"}), phone ${p?.phone || "-"}, referral code ${p?.referral_code || "-"}.`);
+  lines.push(`Wallet balance: NGN ${Number(wallet.data?.balance ?? 0).toLocaleString()}`);
+  if (txs.data?.length) {
+    lines.push("Recent transactions:");
+    for (const t of txs.data) {
+      lines.push(`- ${t.created_at?.slice(0, 16)} | ${t.type} | NGN ${t.amount} | ${t.status} | ref ${t.reference ?? "-"}${t.description ? ` | ${t.description}` : ""}`);
+    }
+  } else {
+    lines.push("No transactions yet.");
   }
 
-  try {
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openaiKey) {
-      return json({ error: "OpenAI key not configured" }, 500);
+  if (isAdmin) {
+    const [users, pending, deposits] = await Promise.all([
+      supabase.from("profiles").select("id", { count: "exact", head: true }),
+      supabase.from("funding_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      supabase.from("funding_requests").select("amount, status, created_at").order("created_at", { ascending: false }).limit(10),
+    ]);
+    lines.push(`ADMIN STATS — total users: ${users.count ?? "?"}, pending funding requests: ${pending.count ?? "?"}.`);
+    if (deposits.data?.length) {
+      lines.push(`Latest funding requests: ${deposits.data.map((d: any) => `NGN ${d.amount} (${d.status})`).join(", ")}`);
     }
+  }
+  return lines.join("\n");
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) return json({ error: "AI is not configured" }, 500);
 
     const authHeader = req.headers.get("Authorization");
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      {
-        global: { headers: { Authorization: authHeader || "" } },
-      }
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Get user if logged in (optional)
     let userId: string | null = null;
     if (authHeader) {
-      const { data: { user } } = await supabase.auth.getUser();
-      userId = user?.id ?? null;
+      const { data } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+      userId = data?.user?.id ?? null;
+    }
+
+    let isAdmin = false;
+    if (userId) {
+      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+      isAdmin = (roles || []).some((r: { role: string }) => r.role === "admin");
     }
 
     const body = await req.json();
-    const messages = body.messages as { role: string; content: string }[];
-
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    const messages = (body.messages ?? []) as { role: string; content: unknown }[];
+    if (!Array.isArray(messages) || messages.length === 0) {
       return json({ error: "messages array is required" }, 400);
     }
+    const lang = LANGS[body.lang as string] ?? LANGS.en;
+    const context = await buildContext(supabase, userId, isAdmin, body.page);
 
-    // Call OpenAI
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    const system = [BASE_PROMPT, isAdmin ? ADMIN_PROMPT : "", `\nLANGUAGE: ${lang}`, `\nLIVE CONTEXT:\n${context}`]
+      .filter(Boolean).join("\n");
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${openaiKey}`,
         "Content-Type": "application/json",
+        "Lovable-API-Key": LOVABLE_API_KEY,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",          // fast + cheap, very good
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          ...messages.slice(-12),      // keep last 12 messages for context
-        ],
-        temperature: 0.7,
-        max_tokens: 600,
+        model: "google/gemini-3.6-flash",
+        stream: true,
+        messages: [{ role: "system", content: system }, ...messages.slice(-14)],
       }),
     });
 
-    if (!openaiRes.ok) {
-      const err = await openaiRes.text();
-      console.error("OpenAI error:", err);
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("AI gateway error:", res.status, errText);
+      if (res.status === 429) return json({ error: "Too many requests. Please wait a moment and try again." }, 429);
+      if (res.status === 402) return json({ error: "AI credits exhausted. Please contact support." }, 402);
       return json({ error: "AI service temporarily unavailable" }, 502);
     }
 
-    const data = await openaiRes.json();
-    const reply = data.choices?.[0]?.message?.content ?? "Sorry, I couldn't generate a reply.";
-
-    return json({
-      reply,
-      model: "gpt-4o-mini",
+    return new Response(res.body, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
     });
-
   } catch (err) {
     console.error("ai-chat error:", err);
     return json({ error: "Something went wrong. Please try again." }, 500);
