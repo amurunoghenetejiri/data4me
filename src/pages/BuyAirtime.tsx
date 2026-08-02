@@ -226,7 +226,7 @@ export default function BuyAirtime() {
               <CheckCircle2 className="h-4 w-4 text-success" /> Delivery promise
             </h3>
             <p className="text-sm text-muted-foreground">
-              If your airtime doesn't arrive in 5 minutes, we refund automatically.
+              If your airtime does not arrive in 5 minutes, we refund automatically.
             </p>
           </Card>
         </aside>
@@ -253,4 +253,4 @@ export default function BuyAirtime() {
       <ReceiptDialog tx={receipt} onClose={() => setReceipt(null)} />
     </div>
   );
-                }
+      }
