@@ -159,3 +159,46 @@ All colors MUST be HSL.
   .hover-lift { @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-elevated; }
   .story-link { @apply relative inline-block after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-primary after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left; }
 }
+
+/* ---------- D4 AI assistant ---------- */
+@layer components {
+  .d4-glass {
+    background: linear-gradient(160deg, hsl(var(--card) / 0.92), hsl(var(--card) / 0.78));
+    backdrop-filter: blur(18px);
+    border: 1px solid hsl(var(--primary) / 0.28);
+    box-shadow: 0 24px 60px -20px hsl(var(--primary) / 0.35), 0 0 0 1px hsl(var(--primary) / 0.06) inset;
+  }
+  .dark .d4-glass {
+    background: linear-gradient(160deg, hsl(222 47% 8% / 0.92), hsl(222 47% 6% / 0.85));
+  }
+  .d4-orb { animation: d4-float 4.5s ease-in-out infinite; }
+  .d4-orb-core {
+    position: relative;
+    height: 3.25rem; width: 3.25rem; border-radius: 9999px;
+    background: radial-gradient(circle at 30% 25%, hsl(var(--primary-glow) / 0.55), hsl(222 47% 6%) 62%);
+    border: 1px solid hsl(var(--primary) / 0.75);
+    box-shadow: 0 0 22px hsl(var(--primary) / 0.55), 0 0 60px hsl(180 70% 45% / 0.35), inset 0 1px 6px hsl(0 0% 100% / 0.25);
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .d4-orb:hover .d4-orb-core { transform: scale(1.07); box-shadow: 0 0 30px hsl(var(--primary) / 0.8), 0 0 80px hsl(180 70% 45% / 0.5); }
+  .d4-orb:active .d4-orb-core { transform: scale(0.94); }
+  .d4-orb-core-sm {
+    height: 1.75rem; width: 1.75rem; border-radius: 9999px;
+    background: radial-gradient(circle at 30% 25%, hsl(var(--primary-glow) / 0.6), hsl(222 47% 8%) 65%);
+    border: 1px solid hsl(var(--primary) / 0.7);
+    box-shadow: 0 0 14px hsl(var(--primary) / 0.5);
+  }
+  .d4-orb-ring {
+    position: absolute; inset: 0; border-radius: 9999px;
+    border: 1px solid hsl(var(--primary) / 0.45);
+    border-top-color: transparent; border-bottom-color: hsl(180 70% 55% / 0.6);
+    animation: d4-spin 6s linear infinite;
+  }
+  .d4-orb-ring-2 { inset: -6px; border-color: hsl(180 70% 55% / 0.3); border-left-color: transparent; animation: d4-spin 9s linear reverse infinite; }
+  .d4-dot { height: .45rem; width: .45rem; border-radius: 9999px; background: hsl(var(--primary)); animation: d4-bounce 1.2s infinite; }
+  .d4-dot-2 { animation-delay: .15s; }
+  .d4-dot-3 { animation-delay: .3s; }
+}
+@keyframes d4-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes d4-spin { to { transform: rotate(360deg); } }
+@keyframes d4-bounce { 0%,100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-4px); opacity: 1; } }

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Users, Receipt, ArrowDownToLine, ArrowUpFromLine, BadgeCheck,
@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+
+const D4AIAssistant = lazy(() => import("@/components/ai/D4AIAssistant"));
 
 const nav = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -224,6 +226,9 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+      <Suspense fallback={null}>
+        <D4AIAssistant />
+      </Suspense>
     </div>
   );
 }
