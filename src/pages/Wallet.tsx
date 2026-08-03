@@ -52,12 +52,13 @@ export default function Wallet() {
     const loadCashback = async () => {
       const { data } = await supabase
         .from("wallets")
-        .select("cashback_balance, has_funded")
+        .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
       if (data) {
-        setCashbackBalance(Number(data.cashback_balance || 0));
-        setHasFunded(!!data.has_funded);
+        const row = data as any;
+        setCashbackBalance(Number(row.cashback_balance || 0));
+        setHasFunded(!!row.has_funded);
       }
       setCashbackLoading(false);
     };
