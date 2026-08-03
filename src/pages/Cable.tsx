@@ -10,6 +10,7 @@ import { Tv } from "lucide-react";
 import { PinDialog } from "@/components/PinDialog";
 import { ReceiptDialog } from "@/components/ReceiptDialog";
 import { Transaction } from "@/lib/data";
+import { buyCable } from "@/services/vtuPurchase";
 
 const PROVIDERS = {
   DStv: [{ name: "Padi", price: 2950 }, { name: "Yanga", price: 4200 }, { name: "Confam", price: 7400 }, { name: "Compact", price: 12500 }, { name: "Premium", price: 29500 }],
@@ -19,7 +20,8 @@ const PROVIDERS = {
 };
 
 export default function Cable() {
-  const { user, openAuth, wallet, deductWallet, addTransaction, pushNotification } = useApp();
+  const { user, openAuth, wallet, addTransaction, pushNotification, refreshUser } = useApp();
+  const [processing, setProcessing] = useState(false);
   const [provider, setProvider] = useState<keyof typeof PROVIDERS>("DStv");
   const [packageName, setPackageName] = useState(PROVIDERS.DStv[0].name);
   const [smartcard, setSmartcard] = useState("");
@@ -35,17 +37,32 @@ export default function Cable() {
     setPinOpen(true);
   }
 
-  function confirm() {
+  async function confirm() {
     setPinOpen(false);
-    deductWallet(price);
-    const tx = addTransaction({
-      type: "cable", amount: price, status: "success",
-      description: `${provider} ${packageName}`,
-      meta: { Provider: provider, Package: packageName, "Smartcard": smartcard },
-    });
-    pushNotification({ title: "Cable subscription successful", body: `${provider} ${packageName} renewed on ${smartcard}.` });
-    setReceipt(tx);
-    setSmartcard("");
+    setProcessing(true);
+    const toastId = toast.loading(`Processing ${provider} ${packageName}...`);
+    try {
+      const result = await buyCable(provider, packageName, smartcard, price);
+      if (!result.success) {
+        toast.error(result.error || "Transaction failed. Please try again.", { id: toastId });
+        refreshUser();
+        return;
+      }
+      const tx = addTransaction({
+        type: "cable", amount: result.total || price, status: "success",
+        description: `${provider} ${packageName}`,
+        meta: { Provider: provider, Package: packageName, "Smartcard": smartcard, tx_id: result.tx_id },
+      });
+      pushNotification({ title: "Cable subscription successful", body: `${provider} ${packageName} renewed on ${smartcard}.` });
+      toast.success("Cable subscription successful", { id: toastId });
+      setReceipt(tx);
+      setSmartcard("");
+      setTimeout(() => refreshUser(), 1000);
+    } catch (err: any) {
+      toast.error(err?.message || "Transaction failed. Please try again.", { id: toastId });
+    } finally {
+      setProcessing(false);
+    }
   }
 
   return (
@@ -81,7 +98,7 @@ export default function Cable() {
           <span className="text-sm text-muted-foreground">Total</span>
           <span className="text-2xl font-bold">₦{price.toLocaleString()}</span>
         </div>
-        <Button onClick={attempt} className="mt-4 w-full bg-gradient-primary" size="lg">Subscribe</Button>
+        <Button onClick={attempt} disabled={processing} className="mt-4 w-full bg-gradient-primary" size="lg">{processing ? "Processing..." : "Subscribe"}</Button>
       </Card>
 
       <PinDialog open={pinOpen} onClose={() => setPinOpen(false)} onVerified={confirm} title="Authorise subscription" description={`Confirm ₦${price.toLocaleString()} ${provider} ${packageName}.`} />

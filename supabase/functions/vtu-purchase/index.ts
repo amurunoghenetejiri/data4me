@@ -44,6 +44,17 @@ function normalizeNetwork(raw: string, provider?: string): string {
   return u;
 }
 
+function inferNetwork(...cands: any[]): string {
+  for (const c of cands) {
+    const t = String(c || '').toUpperCase();
+    if (t.indexOf('9MOBILE') !== -1 || t.indexOf('ETISALAT') !== -1) return '9MOBILE';
+    if (t.indexOf('AIRTEL') !== -1) return 'AIRTEL';
+    if (t.indexOf('MTN') !== -1) return 'MTN';
+    if (t.indexOf('GLO') !== -1) return 'GLO';
+  }
+  return '';
+}
+
 const j = (b: any, s = 200) =>
   new Response(JSON.stringify(b), {
     status: s,
@@ -244,12 +255,25 @@ function isRecoverable(status: number, body: any): boolean {
 }
 
 function formatAttempts(attempts: Array<{ provider: string; result: ProviderResult }>): string {
+  if (!attempts.length) return 'none';
   return attempts
     .map(function (a) {
-      return a.provider + ': ' + (a.result.error || 'err');
+      const st = a.result.status ? ' HTTP ' + a.result.status : '';
+      return a.provider + st + ' → ' + (a.result.ok ? 'success' : a.result.error || 'unknown error');
     })
     .join(' | ');
 }
+
+function lastError(attempts: Array<{ provider: string; result: ProviderResult }>): string {
+  if (!attempts.length) return 'No provider responded';
+  const last = attempts[attempts.length - 1];
+  return last.result.error || 'Unknown provider error';
+}
+
+function lastProvider(attempts: Array<{ provider: string; result: ProviderResult }>): string {
+  return attempts.length ? attempts[attempts.length - 1].provider : '-';
+}
+
 
 async function callSmeapi(path: string, body: any): Promise<ProviderResult> {
   if (!SMEAPI_KEY) {
@@ -447,6 +471,19 @@ async function logApi(
     error?: string;
   }
 ) {
+  console.log(
+    '[vtu-purchase]',
+    JSON.stringify({
+      ts: new Date().toISOString(),
+      user_id: args.user_id,
+      provider: args.provider,
+      endpoint: args.endpoint,
+      http_status: args.status,
+      request: args.request,
+      response: args.response,
+      error: args.error,
+    })
+  );
   try {
     await svc.from('activity_logs').insert({
       user_id: args.user_id,
@@ -474,6 +511,8 @@ Deno.serve(async (req) => {
 
     if (action === 'buy-airtime') return await handleAirtime(svc, user, payload);
     if (action === 'buy-data') return await handleData(svc, user, payload);
+    if (action === 'buy-cable') return await handleCable(svc, user, payload);
+    if (action === 'buy-electricity') return await handleElectricity(svc, user, payload);
     return fail('Something went wrong. Please try again.');
   } catch (e: any) {
     console.error('[vtu-purchase] fatal', e?.message, e?.stack);
@@ -531,16 +570,9 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
       status: r.status,
       error: r.error,
     });
-    if (r.ok) {
-      finalResult = r;
-      finalProvider = provider;
-      break;
-    }
-    if (!r.recoverable) {
-      finalResult = r;
-      finalProvider = provider;
-      break;
-    }
+    finalResult = r;
+    finalProvider = provider;
+    if (r.ok) break;
   }
 
   if (!finalResult) {
@@ -553,7 +585,10 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
       Network: network,
       Phone: phone,
       Amount: 'NGN' + amount,
+      Provider: lastProvider(attempts),
+      'Provider error': lastError(attempts),
       Attempts: formatAttempts(attempts),
+      Refunded: 'yes (hold released)',
     });
     return fail('Service temporarily unavailable. Please try again later.', { refunded: true });
   }
@@ -615,7 +650,11 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     Network: network,
     Phone: phone,
     Amount: 'NGN' + amount,
+    Provider: lastProvider(attempts),
+    'Provider error': lastError(attempts),
+    'HTTP status': finalResult.status || '-',
     Attempts: formatAttempts(attempts),
+    Refunded: 'yes (hold released)',
   });
 
   return fail(userSafeError(finalResult.error), {
@@ -641,8 +680,25 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
   if (pErr || !plan) return fail('Selected plan is not available. Please choose another plan.');
   if (!plan.is_active) return fail('Selected plan is not available. Please choose another plan.');
 
-  const primaryProvider = String(plan.provider || plan.supplier || 'smeapi');
-  const network = normalizeNetwork(String(plan.network || ''), primaryProvider);
+  const primaryProvider = String(plan.provider || plan.supplier || 'smeapi').toLowerCase();
+  let network = normalizeNetwork(String(plan.network || ''), primaryProvider);
+  if (['MTN', 'GLO', 'AIRTEL', '9MOBILE'].indexOf(network) === -1) {
+    network = inferNetwork(plan.plan_name, plan.data_size, plan.description);
+  }
+  if (['MTN', 'GLO', 'AIRTEL', '9MOBILE'].indexOf(network) === -1) {
+    console.error('[vtu-purchase] unresolved network', {
+      plan_id: plan.id,
+      raw_network: plan.network,
+      provider: primaryProvider,
+    });
+    return fail('Selected network is not supported. Please try another network.');
+  }
+
+  const primaryPlanCode = String(plan.plan_id || plan.api_code || '').trim();
+  if (!primaryPlanCode) {
+    return fail('Selected plan is not available. Please choose another plan.');
+  }
+
   const sellingPrice = Number(plan.selling_price);
   const charge = await getServiceCharge(svc, 'data', sellingPrice);
   const total = sellingPrice + charge;
@@ -686,9 +742,9 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
   let finalProviderPlanId = '';
 
   const tryList: Array<{ provider: string; providerPlanId: string }> = [
-    { provider: primaryProvider, providerPlanId: String(plan.plan_id || plan.api_code || '') },
+    { provider: primaryProvider, providerPlanId: primaryPlanCode },
   ];
-  if (alt) {
+  if (alt && String(alt.plan_id || alt.api_code || '').trim()) {
     tryList.push({
       provider: secondaryProvider,
       providerPlanId: String(alt.plan_id || alt.api_code || ''),
@@ -708,18 +764,10 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
       status: r.status,
       error: r.error,
     });
-    if (r.ok) {
-      finalResult = r;
-      finalProvider = t.provider;
-      finalProviderPlanId = t.providerPlanId;
-      break;
-    }
-    if (!r.recoverable) {
-      finalResult = r;
-      finalProvider = t.provider;
-      finalProviderPlanId = t.providerPlanId;
-      break;
-    }
+    finalResult = r;
+    finalProvider = t.provider;
+    finalProviderPlanId = t.providerPlanId;
+    if (r.ok) break;
   }
 
   if (!finalResult) {
@@ -727,12 +775,15 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
       _hold_id: holdId,
       _reason: 'no-provider-response',
     });
-    tg('Data Failed', 'X', {
+    tg('Data Failed', '❌', {
       User: user.email || user.id,
       Network: network,
       Phone: phone,
       Plan: String(plan.data_size || '') + ' / ' + String(plan.validity || ''),
+      Provider: lastProvider(attempts),
+      'Provider error': lastError(attempts),
       Attempts: formatAttempts(attempts),
+      Refunded: 'yes (hold released)',
     });
     return fail('Service temporarily unavailable. Please try again later.', { refunded: true });
   }
@@ -776,7 +827,7 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     const txId = (tx as any)?.id || null;
     const cashback = await awardCashbackIfAny(svc, user.id, 'data', sellingPrice, txId);
 
-    tg('Data Success', 'OK', {
+    tg('Data Success', '✅', {
       Provider: finalProvider,
       User: user.email || user.id,
       Network: network,
@@ -803,15 +854,225 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     _reason: finalResult.error || 'provider-failed',
   });
 
-  tg('Data Failed', 'X', {
+  tg('Data Failed', '❌', {
     User: user.email || user.id,
     Network: network,
     Phone: phone,
     Plan: String(plan.data_size || '') + ' / ' + String(plan.validity || ''),
+    Provider: lastProvider(attempts),
+    'Provider error': lastError(attempts),
+    'HTTP status': finalResult.status || '-',
     Attempts: formatAttempts(attempts),
+    Refunded: 'yes (hold released)',
   });
 
   return fail(userSafeError(finalResult.error), {
     refunded: true,
+  });
+}
+
+
+async function handleCable(svc: any, user: { id: string; email?: string }, p: any) {
+  const provider = String(p.provider || '').trim();
+  const plan = String(p.plan || '').trim();
+  const smartcard = String(p.smart_card_number || '').trim();
+  const amount = Number(p.amount);
+
+  if (!provider || !plan) return fail('Please select a cable provider and package.');
+  if (!/^\d{10,12}$/.test(smartcard)) return fail('Enter a valid smartcard / IUC number.');
+  if (!Number.isFinite(amount) || amount <= 0) return fail('Invalid amount. Please check and try again.');
+
+  const charge = await getServiceCharge(svc, 'cable', amount);
+  const total = amount + charge;
+
+  let holdId: string;
+  try {
+    const { data, error } = await svc.rpc('create_wallet_hold', {
+      _user_id: user.id,
+      _amount: total,
+      _purpose: 'cable',
+      _meta: { provider: provider, plan: plan, smartcard: smartcard, product_amount: amount, charge: charge },
+    });
+    if (error) throw error;
+    holdId = data as string;
+  } catch (e: any) {
+    return fail(userSafeError(e?.message));
+  }
+
+  const r = await callSmeapi('/cablesub', {
+    cablename: provider,
+    cableplan: plan,
+    smart_card_number: smartcard,
+    pin: SMEAPI_PIN,
+  });
+  await logApi(svc, {
+    user_id: user.id,
+    provider: 'smeapi',
+    endpoint: 'buy-cable',
+    request: { provider: provider, plan: plan, smart_card_number: smartcard, amount: amount },
+    response: r.body,
+    status: r.status,
+    error: r.error,
+  });
+
+  if (!r.ok) {
+    await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: r.error || 'provider-failed' });
+    tg('Cable Failed', '❌', {
+      User: user.email || user.id,
+      Provider: 'smeapi',
+      Package: provider + ' ' + plan,
+      Smartcard: smartcard,
+      Amount: 'NGN' + amount,
+      'Provider error': r.error || 'Unknown provider error',
+      'HTTP status': r.status || '-',
+      Refunded: 'yes (hold released)',
+    });
+    return fail(userSafeError(r.error), { refunded: true });
+  }
+
+  const { data: tx, error: cErr } = await svc.rpc('commit_wallet_hold', {
+    _hold_id: holdId,
+    _type: 'cable',
+    _description: provider + ' ' + plan + ' on ' + smartcard,
+    _meta: {
+      provider: 'smeapi',
+      cable_provider: provider,
+      plan: plan,
+      smartcard: smartcard,
+      product_amount: amount,
+      charge: charge,
+      supplier_reference: r.reference,
+      provider_response: r.body,
+    },
+  });
+  if (cErr) {
+    await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: 'commit-failed' });
+    return fail('Transaction failed. Please try again.');
+  }
+
+  const txId = (tx as any)?.id || null;
+  const cashback = await awardCashbackIfAny(svc, user.id, 'cable', amount, txId);
+
+  tg('Cable Success', '✅', {
+    Provider: 'smeapi',
+    User: user.email || user.id,
+    Package: provider + ' ' + plan,
+    Smartcard: smartcard,
+    Amount: 'NGN' + amount,
+    Reference: r.reference || '-',
+  });
+
+  return ok({
+    tx_id: txId,
+    charge: charge,
+    total: total,
+    cashback: cashback,
+    provider: 'smeapi',
+    response: r.body,
+  });
+}
+
+async function handleElectricity(svc: any, user: { id: string; email?: string }, p: any) {
+  const disco = String(p.disco || '').trim();
+  const meter = String(p.meter_number || '').trim();
+  const meterType = String(p.meter_type || 'PREPAID').toUpperCase() === 'POSTPAID' ? 'POSTPAID' : 'PREPAID';
+  const amount = Number(p.amount);
+
+  if (!disco) return fail('Please select a disco.');
+  if (!/^\d{10,13}$/.test(meter)) return fail('Enter a valid meter number.');
+  if (!Number.isFinite(amount) || amount < 500) return fail('Invalid amount. Please check and try again.');
+
+  const charge = await getServiceCharge(svc, 'electricity', amount);
+  const total = amount + charge;
+
+  let holdId: string;
+  try {
+    const { data, error } = await svc.rpc('create_wallet_hold', {
+      _user_id: user.id,
+      _amount: total,
+      _purpose: 'electricity',
+      _meta: { disco: disco, meter: meter, meter_type: meterType, product_amount: amount, charge: charge },
+    });
+    if (error) throw error;
+    holdId = data as string;
+  } catch (e: any) {
+    return fail(userSafeError(e?.message));
+  }
+
+  const r = await callSmeapi('/billpayment', {
+    disco_name: disco,
+    meter_number: meter,
+    MeterType: meterType,
+    amount: amount,
+    pin: SMEAPI_PIN,
+  });
+  await logApi(svc, {
+    user_id: user.id,
+    provider: 'smeapi',
+    endpoint: 'buy-electricity',
+    request: { disco: disco, meter_number: meter, meter_type: meterType, amount: amount },
+    response: r.body,
+    status: r.status,
+    error: r.error,
+  });
+
+  if (!r.ok) {
+    await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: r.error || 'provider-failed' });
+    tg('Electricity Failed', '❌', {
+      User: user.email || user.id,
+      Provider: 'smeapi',
+      Disco: disco,
+      Meter: meter + ' (' + meterType + ')',
+      Amount: 'NGN' + amount,
+      'Provider error': r.error || 'Unknown provider error',
+      'HTTP status': r.status || '-',
+      Refunded: 'yes (hold released)',
+    });
+    return fail(userSafeError(r.error), { refunded: true });
+  }
+
+  const token = r.body?.token || r.body?.Token || r.body?.data?.token || null;
+
+  const { data: tx, error: cErr } = await svc.rpc('commit_wallet_hold', {
+    _hold_id: holdId,
+    _type: 'electricity',
+    _description: disco + ' ' + meterType + ' NGN' + amount + ' • ' + meter,
+    _meta: {
+      provider: 'smeapi',
+      disco: disco,
+      meter: meter,
+      meter_type: meterType,
+      token: token,
+      product_amount: amount,
+      charge: charge,
+      supplier_reference: r.reference,
+      provider_response: r.body,
+    },
+  });
+  if (cErr) {
+    await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: 'commit-failed' });
+    return fail('Transaction failed. Please try again.');
+  }
+
+  const txId = (tx as any)?.id || null;
+  const cashback = await awardCashbackIfAny(svc, user.id, 'electricity', amount, txId);
+
+  tg('Electricity Success', '✅', {
+    Provider: 'smeapi',
+    User: user.email || user.id,
+    Disco: disco,
+    Meter: meter + ' (' + meterType + ')',
+    Amount: 'NGN' + amount,
+    Token: token || '-',
+  });
+
+  return ok({
+    tx_id: txId,
+    charge: charge,
+    total: total,
+    cashback: cashback,
+    token: token,
+    provider: 'smeapi',
+    response: r.body,
   });
 }

@@ -159,3 +159,51 @@ export async function buyData(planId: string, phone: string): Promise<VTURespons
 
   return data as VTUResponse;
    }
+
+
+async function invokeVtu(body: Record<string, unknown>): Promise<VTUResponse> {
+  const { data: session } = await supabase.auth.getSession();
+  if (!session?.session?.access_token) throw new Error("Please sign in and try again.");
+
+  const { data, error } = await supabase.functions.invoke("vtu-purchase", {
+    headers: { Authorization: "Bearer " + session.session.access_token },
+    body,
+  });
+
+  if (error) throw new Error(parseFunctionError(error.message));
+  if (!data) throw new Error("Transaction failed. Please try again.");
+  if (data.success === false) {
+    return { ...data, error: userSafeMessage(data.error) } as VTUResponse;
+  }
+  return data as VTUResponse;
+}
+
+export async function buyCable(
+  provider: string,
+  plan: string,
+  smartCardNumber: string,
+  amount: number
+): Promise<VTUResponse> {
+  return invokeVtu({
+    action: "buy-cable",
+    provider,
+    plan,
+    smart_card_number: smartCardNumber,
+    amount,
+  });
+}
+
+export async function buyElectricity(
+  disco: string,
+  meterNumber: string,
+  meterType: "prepaid" | "postpaid",
+  amount: number
+): Promise<VTUResponse & { token?: string | null }> {
+  return invokeVtu({
+    action: "buy-electricity",
+    disco,
+    meter_number: meterNumber,
+    meter_type: meterType.toUpperCase(),
+    amount,
+  });
+}
