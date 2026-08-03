@@ -20,17 +20,18 @@ type Body = {
   icon?: string | null;
   image?: string | null;
   action_url?: string;
-  user_ids?: string[]; // omit or empty = everyone
+  user_ids?: string[];
 };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const svc = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const dispatchSecret = Deno.env.get("PUSH_DISPATCH_SECRET") || "";
+
+    const svc = createClient(supabaseUrl, serviceKey);
 
     const authHeader = req.headers.get("Authorization") || "";
     const { data: userData, error: userErr } = await svc.auth.getUser(
@@ -85,7 +86,6 @@ Deno.serve(async (req) => {
       inserted += chunk.length;
     }
 
-    // Archive copy for the admin broadcast history (user_id null = no push).
     if (!payload.user_ids?.length) {
       await svc.from("notifications").insert({ ...base, user_id: null });
     }
@@ -98,7 +98,58 @@ Deno.serve(async (req) => {
       details: { title, type, recipients: inserted },
     });
 
-    return json({ success: true, recipients: inserted });
+    // Send real device push (this was missing before)
+    const pushUrl = supabaseUrl.replace(/\/+$/, "") + "/functions/v1/send-push";
+    let pushedUsers = 0;
+    let pushErrors = 0;
+    const BATCH = 10;
+
+    for (let i = 0; i < ids.length; i += BATCH) {
+      const batch = ids.slice(i, i + BATCH);
+      const results = await Promise.all(
+        batch.map(async (uid) => {
+          try {
+            const res = await fetch(pushUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + serviceKey,
+                "x-internal-secret": dispatchSecret,
+              },
+              body: JSON.stringify({
+                internal: true,
+                user_id: uid,
+                title,
+                body,
+                type,
+                action_url: actionUrl,
+                icon: payload.icon ?? null,
+                image: payload.image ?? null,
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data && (data.pushed > 0 || data.success)) return "ok";
+            console.error("[broadcast] push failed for", uid, data);
+            return "err";
+          } catch (e) {
+            console.error("[broadcast] push exception", (e as Error).message);
+            return "err";
+          }
+        }),
+      );
+      for (const r of results) {
+        if (r === "ok") pushedUsers++;
+        else pushErrors++;
+      }
+    }
+
+    return json({
+      success: true,
+      recipients: inserted,
+      push_attempted: ids.length,
+      push_ok: pushedUsers,
+      push_errors: pushErrors,
+    });
   } catch (e) {
     return json({ success: false, error: (e as Error).message }, 500);
   }
