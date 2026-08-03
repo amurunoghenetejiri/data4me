@@ -44,6 +44,17 @@ function normalizeNetwork(raw: string, provider?: string): string {
   return u;
 }
 
+function inferNetwork(...cands: any[]): string {
+  for (const c of cands) {
+    const t = String(c || '').toUpperCase();
+    if (t.indexOf('9MOBILE') !== -1 || t.indexOf('ETISALAT') !== -1) return '9MOBILE';
+    if (t.indexOf('AIRTEL') !== -1) return 'AIRTEL';
+    if (t.indexOf('MTN') !== -1) return 'MTN';
+    if (t.indexOf('GLO') !== -1) return 'GLO';
+  }
+  return '';
+}
+
 const j = (b: any, s = 200) =>
   new Response(JSON.stringify(b), {
     status: s,
@@ -460,6 +471,19 @@ async function logApi(
     error?: string;
   }
 ) {
+  console.log(
+    '[vtu-purchase]',
+    JSON.stringify({
+      ts: new Date().toISOString(),
+      user_id: args.user_id,
+      provider: args.provider,
+      endpoint: args.endpoint,
+      http_status: args.status,
+      request: args.request,
+      response: args.response,
+      error: args.error,
+    })
+  );
   try {
     await svc.from('activity_logs').insert({
       user_id: args.user_id,
@@ -566,7 +590,10 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
       Network: network,
       Phone: phone,
       Amount: 'NGN' + amount,
+      Provider: lastProvider(attempts),
+      'Provider error': lastError(attempts),
       Attempts: formatAttempts(attempts),
+      Refunded: 'yes (hold released)',
     });
     return fail('Service temporarily unavailable. Please try again later.', { refunded: true });
   }
@@ -628,7 +655,11 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     Network: network,
     Phone: phone,
     Amount: 'NGN' + amount,
+    Provider: lastProvider(attempts),
+    'Provider error': lastError(attempts),
+    'HTTP status': finalResult.status || '-',
     Attempts: formatAttempts(attempts),
+    Refunded: 'yes (hold released)',
   });
 
   return fail(userSafeError(finalResult.error), {
@@ -654,8 +685,25 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
   if (pErr || !plan) return fail('Selected plan is not available. Please choose another plan.');
   if (!plan.is_active) return fail('Selected plan is not available. Please choose another plan.');
 
-  const primaryProvider = String(plan.provider || plan.supplier || 'smeapi');
-  const network = normalizeNetwork(String(plan.network || ''), primaryProvider);
+  const primaryProvider = String(plan.provider || plan.supplier || 'smeapi').toLowerCase();
+  let network = normalizeNetwork(String(plan.network || ''), primaryProvider);
+  if (['MTN', 'GLO', 'AIRTEL', '9MOBILE'].indexOf(network) === -1) {
+    network = inferNetwork(plan.plan_name, plan.data_size, plan.description);
+  }
+  if (['MTN', 'GLO', 'AIRTEL', '9MOBILE'].indexOf(network) === -1) {
+    console.error('[vtu-purchase] unresolved network', {
+      plan_id: plan.id,
+      raw_network: plan.network,
+      provider: primaryProvider,
+    });
+    return fail('Selected network is not supported. Please try another network.');
+  }
+
+  const primaryPlanCode = String(plan.plan_id || plan.api_code || '').trim();
+  if (!primaryPlanCode) {
+    return fail('Selected plan is not available. Please choose another plan.');
+  }
+
   const sellingPrice = Number(plan.selling_price);
   const charge = await getServiceCharge(svc, 'data', sellingPrice);
   const total = sellingPrice + charge;
@@ -699,9 +747,9 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
   let finalProviderPlanId = '';
 
   const tryList: Array<{ provider: string; providerPlanId: string }> = [
-    { provider: primaryProvider, providerPlanId: String(plan.plan_id || plan.api_code || '') },
+    { provider: primaryProvider, providerPlanId: primaryPlanCode },
   ];
-  if (alt) {
+  if (alt && String(alt.plan_id || alt.api_code || '').trim()) {
     tryList.push({
       provider: secondaryProvider,
       providerPlanId: String(alt.plan_id || alt.api_code || ''),
@@ -740,12 +788,15 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
       _hold_id: holdId,
       _reason: 'no-provider-response',
     });
-    tg('Data Failed', 'X', {
+    tg('Data Failed', '❌', {
       User: user.email || user.id,
       Network: network,
       Phone: phone,
       Plan: String(plan.data_size || '') + ' / ' + String(plan.validity || ''),
+      Provider: lastProvider(attempts),
+      'Provider error': lastError(attempts),
       Attempts: formatAttempts(attempts),
+      Refunded: 'yes (hold released)',
     });
     return fail('Service temporarily unavailable. Please try again later.', { refunded: true });
   }
@@ -789,7 +840,7 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     const txId = (tx as any)?.id || null;
     const cashback = await awardCashbackIfAny(svc, user.id, 'data', sellingPrice, txId);
 
-    tg('Data Success', 'OK', {
+    tg('Data Success', '✅', {
       Provider: finalProvider,
       User: user.email || user.id,
       Network: network,
@@ -816,12 +867,16 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     _reason: finalResult.error || 'provider-failed',
   });
 
-  tg('Data Failed', 'X', {
+  tg('Data Failed', '❌', {
     User: user.email || user.id,
     Network: network,
     Phone: phone,
     Plan: String(plan.data_size || '') + ' / ' + String(plan.validity || ''),
+    Provider: lastProvider(attempts),
+    'Provider error': lastError(attempts),
+    'HTTP status': finalResult.status || '-',
     Attempts: formatAttempts(attempts),
+    Refunded: 'yes (hold released)',
   });
 
   return fail(userSafeError(finalResult.error), {
