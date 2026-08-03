@@ -10,12 +10,26 @@ import { Zap } from "lucide-react";
 import { PinDialog } from "@/components/PinDialog";
 import { ReceiptDialog } from "@/components/ReceiptDialog";
 import { Transaction } from "@/lib/data";
+import { buyElectricity } from "@/services/vtuPurchase";
 
-const DISCOS = ["EKEDC (Eko)", "IKEDC (Ikeja)", "AEDC (Abuja)", "IBEDC (Ibadan)", "PHED (Port Harcourt)", "KEDCO (Kano)", "KAEDCO (Kaduna)", "EEDC (Enugu)", "BEDC (Benin)", "JED (Jos)", "YEDC (Yola)"];
+const DISCOS = [
+  { code: "EKEDC", label: "EKEDC (Eko)" },
+  { code: "IKEDC", label: "IKEDC (Ikeja)" },
+  { code: "AEDC", label: "AEDC (Abuja)" },
+  { code: "IBEDC", label: "IBEDC (Ibadan)" },
+  { code: "PHED", label: "PHED (Port Harcourt)" },
+  { code: "KEDCO", label: "KEDCO (Kano)" },
+  { code: "KAEDCO", label: "KAEDCO (Kaduna)" },
+  { code: "EEDC", label: "EEDC (Enugu)" },
+  { code: "BEDC", label: "BEDC (Benin)" },
+  { code: "JED", label: "JED (Jos)" },
+  { code: "YEDC", label: "YEDC (Yola)" },
+];
 
 export default function Electricity() {
-  const { user, openAuth, wallet, deductWallet, addTransaction, pushNotification } = useApp();
-  const [disco, setDisco] = useState(DISCOS[0]);
+  const { user, openAuth, wallet, addTransaction, pushNotification, refreshUser } = useApp();
+  const [disco, setDisco] = useState(DISCOS[0].code);
+  const [processing, setProcessing] = useState(false);
   const [meterType, setMeterType] = useState<"prepaid" | "postpaid">("prepaid");
   const [meter, setMeter] = useState("");
   const [amount, setAmount] = useState(2000);
@@ -30,18 +44,33 @@ export default function Electricity() {
     setPinOpen(true);
   }
 
-  function confirm() {
+  async function confirm() {
     setPinOpen(false);
-    deductWallet(amount);
-    const token = Array.from({ length: 4 }, () => Math.floor(1000 + Math.random() * 9000)).join("-");
-    const tx = addTransaction({
-      type: "electricity", amount, status: "success",
-      description: `${disco} • ${meterType}`,
-      meta: { Disco: disco, "Meter Type": meterType, "Meter Number": meter, Token: token },
-    });
-    pushNotification({ title: "Electricity payment successful", body: `Token: ${token} for meter ${meter}.` });
-    setReceipt(tx);
-    setMeter("");
+    setProcessing(true);
+    const toastId = toast.loading(`Paying ₦${amount.toLocaleString()} to ${disco}...`);
+    try {
+      const result = await buyElectricity(disco, meter, meterType, amount);
+      if (!result.success) {
+        toast.error(result.error || "Transaction failed. Please try again.", { id: toastId });
+        refreshUser();
+        return;
+      }
+      const token = (result as any).token || "-";
+      const tx = addTransaction({
+        type: "electricity", amount: result.total || amount, status: "success",
+        description: `${disco} • ${meterType}`,
+        meta: { Disco: disco, "Meter Type": meterType, "Meter Number": meter, Token: token, tx_id: result.tx_id },
+      });
+      pushNotification({ title: "Electricity payment successful", body: `Token: ${token} for meter ${meter}.` });
+      toast.success("Electricity payment successful", { id: toastId });
+      setReceipt(tx);
+      setMeter("");
+      setTimeout(() => refreshUser(), 1000);
+    } catch (err: any) {
+      toast.error(err?.message || "Transaction failed. Please try again.", { id: toastId });
+    } finally {
+      setProcessing(false);
+    }
   }
 
   return (
@@ -55,7 +84,7 @@ export default function Electricity() {
             <Label className="mb-2 block">Disco</Label>
             <Select value={disco} onValueChange={setDisco}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{DISCOS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+              <SelectContent>{DISCOS.map((d) => <SelectItem key={d.code} value={d.code}>{d.label}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div>
@@ -80,7 +109,7 @@ export default function Electricity() {
         <div className="grid grid-cols-4 gap-2 mt-3">
           {[1000, 2000, 5000, 10000].map((a) => <button key={a} onClick={() => setAmount(a)} className={`text-sm py-2 rounded-lg border ${amount === a ? "border-primary bg-accent" : "border-border hover:bg-muted"}`}>₦{a.toLocaleString()}</button>)}
         </div>
-        <Button onClick={attempt} className="mt-6 w-full bg-gradient-primary" size="lg">Pay ₦{amount.toLocaleString()}</Button>
+        <Button onClick={attempt} disabled={processing} className="mt-6 w-full bg-gradient-primary" size="lg">{processing ? "Processing..." : `Pay ₦${amount.toLocaleString()}`}</Button>
       </Card>
 
       <PinDialog open={pinOpen} onClose={() => setPinOpen(false)} onVerified={confirm} title="Authorise payment" description={`Pay ₦${amount.toLocaleString()} to ${disco} (${meter}).`} />
