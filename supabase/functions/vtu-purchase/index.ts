@@ -511,6 +511,8 @@ Deno.serve(async (req) => {
 
     if (action === 'buy-airtime') return await handleAirtime(svc, user, payload);
     if (action === 'buy-data') return await handleData(svc, user, payload);
+    if (action === 'buy-cable') return await handleCable(svc, user, payload);
+    if (action === 'buy-electricity') return await handleElectricity(svc, user, payload);
     return fail('Something went wrong. Please try again.');
   } catch (e: any) {
     console.error('[vtu-purchase] fatal', e?.message, e?.stack);
@@ -866,5 +868,211 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
 
   return fail(userSafeError(finalResult.error), {
     refunded: true,
+  });
+}
+
+
+async function handleCable(svc: any, user: { id: string; email?: string }, p: any) {
+  const provider = String(p.provider || '').trim();
+  const plan = String(p.plan || '').trim();
+  const smartcard = String(p.smart_card_number || '').trim();
+  const amount = Number(p.amount);
+
+  if (!provider || !plan) return fail('Please select a cable provider and package.');
+  if (!/^\d{10,12}$/.test(smartcard)) return fail('Enter a valid smartcard / IUC number.');
+  if (!Number.isFinite(amount) || amount <= 0) return fail('Invalid amount. Please check and try again.');
+
+  const charge = await getServiceCharge(svc, 'cable', amount);
+  const total = amount + charge;
+
+  let holdId: string;
+  try {
+    const { data, error } = await svc.rpc('create_wallet_hold', {
+      _user_id: user.id,
+      _amount: total,
+      _purpose: 'cable',
+      _meta: { provider: provider, plan: plan, smartcard: smartcard, product_amount: amount, charge: charge },
+    });
+    if (error) throw error;
+    holdId = data as string;
+  } catch (e: any) {
+    return fail(userSafeError(e?.message));
+  }
+
+  const r = await callSmeapi('/cablesub', {
+    cablename: provider,
+    cableplan: plan,
+    smart_card_number: smartcard,
+    pin: SMEAPI_PIN,
+  });
+  await logApi(svc, {
+    user_id: user.id,
+    provider: 'smeapi',
+    endpoint: 'buy-cable',
+    request: { provider: provider, plan: plan, smart_card_number: smartcard, amount: amount },
+    response: r.body,
+    status: r.status,
+    error: r.error,
+  });
+
+  if (!r.ok) {
+    await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: r.error || 'provider-failed' });
+    tg('Cable Failed', '❌', {
+      User: user.email || user.id,
+      Provider: 'smeapi',
+      Package: provider + ' ' + plan,
+      Smartcard: smartcard,
+      Amount: 'NGN' + amount,
+      'Provider error': r.error || 'Unknown provider error',
+      'HTTP status': r.status || '-',
+      Refunded: 'yes (hold released)',
+    });
+    return fail(userSafeError(r.error), { refunded: true });
+  }
+
+  const { data: tx, error: cErr } = await svc.rpc('commit_wallet_hold', {
+    _hold_id: holdId,
+    _type: 'cable',
+    _description: provider + ' ' + plan + ' on ' + smartcard,
+    _meta: {
+      provider: 'smeapi',
+      cable_provider: provider,
+      plan: plan,
+      smartcard: smartcard,
+      product_amount: amount,
+      charge: charge,
+      supplier_reference: r.reference,
+      provider_response: r.body,
+    },
+  });
+  if (cErr) {
+    await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: 'commit-failed' });
+    return fail('Transaction failed. Please try again.');
+  }
+
+  const txId = (tx as any)?.id || null;
+  const cashback = await awardCashbackIfAny(svc, user.id, 'cable', amount, txId);
+
+  tg('Cable Success', '✅', {
+    Provider: 'smeapi',
+    User: user.email || user.id,
+    Package: provider + ' ' + plan,
+    Smartcard: smartcard,
+    Amount: 'NGN' + amount,
+    Reference: r.reference || '-',
+  });
+
+  return ok({
+    tx_id: txId,
+    charge: charge,
+    total: total,
+    cashback: cashback,
+    provider: 'smeapi',
+    response: r.body,
+  });
+}
+
+async function handleElectricity(svc: any, user: { id: string; email?: string }, p: any) {
+  const disco = String(p.disco || '').trim();
+  const meter = String(p.meter_number || '').trim();
+  const meterType = String(p.meter_type || 'PREPAID').toUpperCase() === 'POSTPAID' ? 'POSTPAID' : 'PREPAID';
+  const amount = Number(p.amount);
+
+  if (!disco) return fail('Please select a disco.');
+  if (!/^\d{10,13}$/.test(meter)) return fail('Enter a valid meter number.');
+  if (!Number.isFinite(amount) || amount < 500) return fail('Invalid amount. Please check and try again.');
+
+  const charge = await getServiceCharge(svc, 'electricity', amount);
+  const total = amount + charge;
+
+  let holdId: string;
+  try {
+    const { data, error } = await svc.rpc('create_wallet_hold', {
+      _user_id: user.id,
+      _amount: total,
+      _purpose: 'electricity',
+      _meta: { disco: disco, meter: meter, meter_type: meterType, product_amount: amount, charge: charge },
+    });
+    if (error) throw error;
+    holdId = data as string;
+  } catch (e: any) {
+    return fail(userSafeError(e?.message));
+  }
+
+  const r = await callSmeapi('/billpayment', {
+    disco_name: disco,
+    meter_number: meter,
+    MeterType: meterType,
+    amount: amount,
+    pin: SMEAPI_PIN,
+  });
+  await logApi(svc, {
+    user_id: user.id,
+    provider: 'smeapi',
+    endpoint: 'buy-electricity',
+    request: { disco: disco, meter_number: meter, meter_type: meterType, amount: amount },
+    response: r.body,
+    status: r.status,
+    error: r.error,
+  });
+
+  if (!r.ok) {
+    await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: r.error || 'provider-failed' });
+    tg('Electricity Failed', '❌', {
+      User: user.email || user.id,
+      Provider: 'smeapi',
+      Disco: disco,
+      Meter: meter + ' (' + meterType + ')',
+      Amount: 'NGN' + amount,
+      'Provider error': r.error || 'Unknown provider error',
+      'HTTP status': r.status || '-',
+      Refunded: 'yes (hold released)',
+    });
+    return fail(userSafeError(r.error), { refunded: true });
+  }
+
+  const token = r.body?.token || r.body?.Token || r.body?.data?.token || null;
+
+  const { data: tx, error: cErr } = await svc.rpc('commit_wallet_hold', {
+    _hold_id: holdId,
+    _type: 'electricity',
+    _description: disco + ' ' + meterType + ' NGN' + amount + ' • ' + meter,
+    _meta: {
+      provider: 'smeapi',
+      disco: disco,
+      meter: meter,
+      meter_type: meterType,
+      token: token,
+      product_amount: amount,
+      charge: charge,
+      supplier_reference: r.reference,
+      provider_response: r.body,
+    },
+  });
+  if (cErr) {
+    await svc.rpc('release_wallet_hold', { _hold_id: holdId, _reason: 'commit-failed' });
+    return fail('Transaction failed. Please try again.');
+  }
+
+  const txId = (tx as any)?.id || null;
+  const cashback = await awardCashbackIfAny(svc, user.id, 'electricity', amount, txId);
+
+  tg('Electricity Success', '✅', {
+    Provider: 'smeapi',
+    User: user.email || user.id,
+    Disco: disco,
+    Meter: meter + ' (' + meterType + ')',
+    Amount: 'NGN' + amount,
+    Token: token || '-',
+  });
+
+  return ok({
+    tx_id: txId,
+    charge: charge,
+    total: total,
+    cashback: cashback,
+    token: token,
+    provider: 'smeapi',
+    response: r.body,
   });
 }
