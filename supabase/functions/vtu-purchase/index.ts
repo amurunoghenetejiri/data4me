@@ -1,6 +1,6 @@
 // DATA4ME VTU Purchase — Multi-provider (SMEAPI + SMEPlug) with wallet-hold flow.
-// Wallet is only PERMANENTLY debited on provider success. Failures release the hold.
-// User-facing errors are always short and plain (no provider codes / HTTP text).
+// IMPORTANT: Do not use ${} template strings for dynamic values in this file.
+// Some editors/pipelines strip the $ and break the live function.
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2.45.0';
 import { notifyTelegram } from '../_shared/telegram.ts';
@@ -19,13 +19,6 @@ const SMEPLUG_KEY = Deno.env.get('SMEPLUG_API_KEY') || '';
 const SMEAPI_NET_ID: Record<string, number> = { MTN: 1, GLO: 2, '9MOBILE': 3, AIRTEL: 4 };
 const SMEPLUG_NET_ID: Record<string, number> = { MTN: 1, AIRTEL: 2, '9MOBILE': 3, GLO: 4 };
 
-const NETWORK_BY_ID: Record<string, string> = {
-  '1': 'MTN',
-  '2': 'AIRTEL',
-  '3': '9MOBILE',
-  '4': 'GLO',
-};
-
 function normalizeNetwork(raw: string, provider?: string): string {
   const s = String(raw || '').trim().toLowerCase();
   if (s === 'mtn') return 'MTN';
@@ -34,18 +27,15 @@ function normalizeNetwork(raw: string, provider?: string): string {
   if (s === '9mobile' || s === 'etisalat') return '9MOBILE';
 
   const u = s.toUpperCase();
-  if (['MTN', 'GLO', 'AIRTEL', '9MOBILE'].includes(u)) return u;
+  if (u === 'MTN' || u === 'GLO' || u === 'AIRTEL' || u === '9MOBILE') return u;
 
-  // Numeric IDs stored in data_plans.network — mapping depends on provider
   const p = String(provider || '').toLowerCase();
-  if (p.includes('smeplug')) {
-    // SMEPlug: 1=MTN, 2=AIRTEL, 3=9MOBILE, 4=GLO
+  if (p.indexOf('smeplug') !== -1) {
     if (s === '1') return 'MTN';
     if (s === '2') return 'AIRTEL';
     if (s === '3') return '9MOBILE';
     if (s === '4') return 'GLO';
   } else {
-    // SMEAPI (default): 1=MTN, 2=GLO, 3=9MOBILE, 4=AIRTEL
     if (s === '1') return 'MTN';
     if (s === '2') return 'GLO';
     if (s === '3') return '9MOBILE';
@@ -62,53 +52,55 @@ const j = (b: any, s = 200) =>
 const ok = (b: any) => j({ success: true, ...b });
 const fail = (error: string, data: any = {}) => j({ success: false, error, data });
 
-/** Map any raw error to a short message safe for users. */
 function userSafeError(raw?: string | null): string {
   const msg = String(raw || '').toLowerCase();
   if (!msg) return 'Transaction failed. Please try again.';
-
-  if (msg.includes('insufficient')) {
+  if (msg.indexOf('insufficient') !== -1) {
     return 'Insufficient wallet balance. Fund your wallet and try again.';
   }
-  if (msg.includes('invalid') && msg.includes('phone')) {
+  if (msg.indexOf('invalid') !== -1 && msg.indexOf('phone') !== -1) {
     return 'Enter a valid Nigerian phone number.';
   }
-  if (msg.includes('unsupported network')) {
+  if (msg.indexOf('unsupported network') !== -1) {
     return 'Selected network is not supported. Please try another network.';
   }
   if (
-    msg.includes('plan is required') ||
-    msg.includes('plan not found') ||
-    msg.includes('not available')
+    msg.indexOf('plan is required') !== -1 ||
+    msg.indexOf('plan not found') !== -1 ||
+    msg.indexOf('not available') !== -1
   ) {
     return 'Selected plan is not available. Please choose another plan.';
   }
-  if (msg.includes('amount must be') || msg.includes('invalid amount')) {
+  if (msg.indexOf('amount must be') !== -1 || msg.indexOf('invalid amount') !== -1) {
     return 'Invalid amount. Please check and try again.';
   }
-  if (msg.includes('not authenticated') || msg.includes('authorization') || msg.includes('sign in')) {
+  if (
+    msg.indexOf('not authenticated') !== -1 ||
+    msg.indexOf('authorization') !== -1 ||
+    msg.indexOf('sign in') !== -1
+  ) {
     return 'Please sign in and try again.';
   }
   if (
-    msg.includes('timeout') ||
-    msg.includes('unavailable') ||
-    msg.includes('maintenance') ||
-    msg.includes('try again') ||
-    msg.includes('temporarily') ||
-    msg.includes('low balance') ||
-    msg.includes('insufficient fund') ||
-    msg.includes('not configured') ||
-    msg.includes('busy') ||
-    msg.includes('down') ||
-    msg.includes('provider') ||
-    msg.includes('smeapi') ||
-    msg.includes('smeplug') ||
-    msg.includes('http') ||
-    msg.includes('500') ||
-    msg.includes('502') ||
-    msg.includes('503') ||
-    msg.includes('429') ||
-    msg.includes('network')
+    msg.indexOf('timeout') !== -1 ||
+    msg.indexOf('unavailable') !== -1 ||
+    msg.indexOf('maintenance') !== -1 ||
+    msg.indexOf('try again') !== -1 ||
+    msg.indexOf('temporarily') !== -1 ||
+    msg.indexOf('low balance') !== -1 ||
+    msg.indexOf('insufficient fund') !== -1 ||
+    msg.indexOf('not configured') !== -1 ||
+    msg.indexOf('busy') !== -1 ||
+    msg.indexOf('down') !== -1 ||
+    msg.indexOf('provider') !== -1 ||
+    msg.indexOf('smeapi') !== -1 ||
+    msg.indexOf('smeplug') !== -1 ||
+    msg.indexOf('http') !== -1 ||
+    msg.indexOf('500') !== -1 ||
+    msg.indexOf('502') !== -1 ||
+    msg.indexOf('503') !== -1 ||
+    msg.indexOf('429') !== -1 ||
+    msg.indexOf('network') !== -1
   ) {
     return 'Service temporarily unavailable. Please try again later.';
   }
@@ -117,15 +109,15 @@ function userSafeError(raw?: string | null): string {
 
 async function tg(title: string, emoji: string, rows: Record<string, any>) {
   try {
-    await notifyTelegram(
-      `${emoji} <b>DATA4ME • ${title}</b>\n` +
-        Object.entries(rows)
-          .filter(([, v]) => v != null && v !== '')
-          .map(([k, v]) => `<b>${k}:</b> ${v}`)
-          .join('\n') +
-        `\n<b>Time:</b> ${new Date().toISOString()}`
-    );
-  } catch {}
+    let body = emoji + ' <b>DATA4ME • ' + title + '</b>\n';
+    for (const k of Object.keys(rows)) {
+      const v = rows[k];
+      if (v == null || v === '') continue;
+      body += '<b>' + k + ':</b> ' + String(v) + '\n';
+    }
+    body += '<b>Time:</b> ' + new Date().toISOString();
+    await notifyTelegram(body);
+  } catch (_) {}
 }
 
 async function getServiceCharge(svc: any, service: string, amount: number): Promise<number> {
@@ -142,7 +134,7 @@ async function getServiceCharge(svc: any, service: string, amount: number): Prom
       return Math.round(((amount * value) / 100) * 100) / 100;
     }
     return value;
-  } catch {
+  } catch (_) {
     return 0;
   }
 }
@@ -196,10 +188,10 @@ function parseSmeapiSuccess(b: any): boolean {
   const s = String(b.Status ?? b.status ?? b.response_code ?? b.status_code ?? '')
     .toLowerCase()
     .trim();
-  if (['successful', 'success', 'completed', 'complete', '200', '000'].includes(s)) return true;
+  if (['successful', 'success', 'completed', 'complete', '200', '000'].indexOf(s) !== -1) return true;
   if (b.success === true || b.successful === true) return true;
   const msg = String(b.message ?? b.msg ?? '').toLowerCase();
-  return msg.includes('successful') || msg.includes('completed');
+  return msg.indexOf('successful') !== -1 || msg.indexOf('completed') !== -1;
 }
 
 function parseSmeplugSuccess(b: any): boolean {
@@ -210,12 +202,14 @@ function parseSmeplugSuccess(b: any): boolean {
   const s = String(raw ?? '')
     .toLowerCase()
     .trim();
-  if (['success', 'successful', 'completed', 'complete', 'true', '1'].includes(s)) return true;
-  if (['failed', 'failure', 'error', 'false', '0'].includes(s)) return false;
+  if (['success', 'successful', 'completed', 'complete', 'true', '1'].indexOf(s) !== -1) return true;
+  if (['failed', 'failure', 'error', 'false', '0'].indexOf(s) !== -1) return false;
   if (b.success === true) return true;
   if (b.success === false) return false;
   const msg = String(b.msg ?? b.message ?? '').toLowerCase();
-  if (/(successful|completed|processed)/.test(msg)) return true;
+  if (msg.indexOf('successful') !== -1 || msg.indexOf('completed') !== -1 || msg.indexOf('processed') !== -1) {
+    return true;
+  }
   return false;
 }
 
@@ -235,9 +229,26 @@ function isRecoverable(status: number, body: any): boolean {
   if (status === 0 || status === 408 || status === 429) return true;
   const msg = String(body?.msg ?? body?.message ?? body?.error ?? '').toLowerCase();
   if (!msg) return status >= 500;
-  return /(unavailable|timeout|temporarily|maintenance|try again|network|internal|down|busy|not available)/i.test(
-    msg
+  return (
+    msg.indexOf('unavailable') !== -1 ||
+    msg.indexOf('timeout') !== -1 ||
+    msg.indexOf('temporarily') !== -1 ||
+    msg.indexOf('maintenance') !== -1 ||
+    msg.indexOf('try again') !== -1 ||
+    msg.indexOf('network') !== -1 ||
+    msg.indexOf('internal') !== -1 ||
+    msg.indexOf('down') !== -1 ||
+    msg.indexOf('busy') !== -1 ||
+    msg.indexOf('not available') !== -1
   );
+}
+
+function formatAttempts(attempts: Array<{ provider: string; result: ProviderResult }>): string {
+  return attempts
+    .map(function (a) {
+      return a.provider + ': ' + (a.result.error || 'err');
+    })
+    .join(' | ');
 }
 
 async function callSmeapi(path: string, body: any): Promise<ProviderResult> {
@@ -245,11 +256,11 @@ async function callSmeapi(path: string, body: any): Promise<ProviderResult> {
     return { ok: false, recoverable: false, status: 0, body: null, error: 'SMEAPI not configured' };
   }
   try {
-    const res = await fetch(`${SMEAPI_BASE}${path}`, {
+    const res = await fetch(SMEAPI_BASE + path, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Token ${SMEAPI_KEY}`,
+        Authorization: 'Token ' + SMEAPI_KEY,
         'x-api-key': SMEAPI_KEY,
         ...(SMEAPI_USERNAME ? { 'x-username': SMEAPI_USERNAME } : {}),
       },
@@ -259,20 +270,17 @@ async function callSmeapi(path: string, body: any): Promise<ProviderResult> {
     let b: any;
     try {
       b = JSON.parse(text);
-    } catch {
+    } catch (_) {
       b = { raw: text };
     }
-    // FIX: Check HTTP status AND provider success separately
     const providerSuccess = parseSmeapiSuccess(b);
-    const httpSuccess = res.ok;
-    const success = httpSuccess && providerSuccess;
-    
+    const success = res.ok && providerSuccess;
     return {
       ok: success,
       recoverable: !success && isRecoverable(res.status, b),
       status: res.status,
       body: b,
-      error: success ? undefined : b?.msg || b?.message || b?.error || `HTTP ${res.status}`,
+      error: success ? undefined : b?.msg || b?.message || b?.error || ('HTTP ' + res.status),
       reference: b?.reference || b?.ident || b?.transaction_id,
     };
   } catch (e) {
@@ -285,11 +293,11 @@ async function callSmeplug(path: string, body: any): Promise<ProviderResult> {
     return { ok: false, recoverable: false, status: 0, body: null, error: 'SMEPlug not configured' };
   }
   try {
-    const res = await fetch(`${SMEPLUG_BASE}${path}`, {
+    const res = await fetch(SMEPLUG_BASE + path, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${SMEPLUG_KEY}`,
+        Authorization: 'Bearer ' + SMEPLUG_KEY,
         Accept: 'application/json',
       },
       body: JSON.stringify(body),
@@ -298,7 +306,7 @@ async function callSmeplug(path: string, body: any): Promise<ProviderResult> {
     let b: any;
     try {
       b = JSON.parse(text);
-    } catch {
+    } catch (_) {
       b = { raw: text };
     }
     const success = parseSmeplugSuccess(b);
@@ -306,7 +314,7 @@ async function callSmeplug(path: string, body: any): Promise<ProviderResult> {
       b?.msg ||
       b?.message ||
       b?.error ||
-      (success ? undefined : `Provider returned failure (HTTP ${res.status})`);
+      (success ? undefined : 'Provider returned failure (HTTP ' + res.status + ')');
     return {
       ok: success,
       recoverable: !success && isRecoverable(res.status, b),
@@ -330,11 +338,17 @@ async function providerBuyAirtime(
   if (provider === 'smeapi') {
     const id = SMEAPI_NET_ID[NET];
     if (!id) {
-      return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEAPI: ${NET}` };
+      return {
+        ok: false,
+        recoverable: false,
+        status: 0,
+        body: null,
+        error: 'Unsupported network for SMEAPI: ' + NET,
+      };
     }
     return callSmeapi('/airtime/', {
       network: id,
-      amount,
+      amount: amount,
       mobile_number: phone,
       Ported_number: true,
       airtime_type: 'VTU',
@@ -344,16 +358,28 @@ async function providerBuyAirtime(
   if (provider === 'smeplug') {
     const id = SMEPLUG_NET_ID[NET];
     if (!id) {
-      return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEPlug: ${NET}` };
+      return {
+        ok: false,
+        recoverable: false,
+        status: 0,
+        body: null,
+        error: 'Unsupported network for SMEPlug: ' + NET,
+      };
     }
     return callSmeplug('/airtime/purchase', {
       network_id: id,
-      amount,
-      phone,
-      customer_reference: `D4M-${Date.now()}`,
+      amount: amount,
+      phone: phone,
+      customer_reference: 'D4M-' + Date.now(),
     });
   }
-  return { ok: false, recoverable: false, status: 0, body: null, error: `Unknown provider: ${provider}` };
+  return {
+    ok: false,
+    recoverable: false,
+    status: 0,
+    body: null,
+    error: 'Unknown provider: ' + provider,
+  };
 }
 
 async function providerBuyData(
@@ -366,9 +392,14 @@ async function providerBuyData(
   if (provider === 'smeapi') {
     const id = SMEAPI_NET_ID[NET];
     if (!id) {
-      return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEAPI: ${NET}` };
+      return {
+        ok: false,
+        recoverable: false,
+        status: 0,
+        body: null,
+        error: 'Unsupported network for SMEAPI: ' + NET,
+      };
     }
-    // FIX: Add PIN to data purchase as well (consistency with airtime)
     return callSmeapi('/data/', {
       network: id,
       mobile_number: phone,
@@ -380,16 +411,28 @@ async function providerBuyData(
   if (provider === 'smeplug') {
     const id = SMEPLUG_NET_ID[NET];
     if (!id) {
-      return { ok: false, recoverable: false, status: 0, body: null, error: `Unsupported network for SMEPlug: ${NET}` };
+      return {
+        ok: false,
+        recoverable: false,
+        status: 0,
+        body: null,
+        error: 'Unsupported network for SMEPlug: ' + NET,
+      };
     }
     return callSmeplug('/data/purchase', {
       network_id: id,
       plan_id: planId,
-      phone,
-      customer_reference: `D4M-${Date.now()}`,
+      phone: phone,
+      customer_reference: 'D4M-' + Date.now(),
     });
   }
-  return { ok: false, recoverable: false, status: 0, body: null, error: `Unknown provider: ${provider}` };
+  return {
+    ok: false,
+    recoverable: false,
+    status: 0,
+    body: null,
+    error: 'Unknown provider: ' + provider,
+  };
 }
 
 async function logApi(
@@ -408,7 +451,7 @@ async function logApi(
     await svc.from('activity_logs').insert({
       user_id: args.user_id,
       user_email: null,
-      event: `vtu:${args.provider}:${args.endpoint}`,
+      event: 'vtu:' + args.provider + ':' + args.endpoint,
       category: 'vtu',
       details: {
         request: args.request,
@@ -417,7 +460,7 @@ async function logApi(
         error: args.error,
       },
     });
-  } catch {}
+  } catch (_) {}
 }
 
 Deno.serve(async (req) => {
@@ -446,10 +489,10 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
   if (!/^0[789][01]\d{8}$/.test(phone)) {
     return fail('Enter a valid Nigerian phone number.');
   }
-  if (!['MTN', 'GLO', 'AIRTEL', '9MOBILE'].includes(network)) {
+  if (['MTN', 'GLO', 'AIRTEL', '9MOBILE'].indexOf(network) === -1) {
     return fail('Selected network is not supported. Please try another network.');
   }
-  if (!Number.isFinite(amount) || amount < 50 || amount > 1_000_000) {
+  if (!Number.isFinite(amount) || amount < 50 || amount > 1000000) {
     return fail('Invalid amount. Please check and try again.');
   }
 
@@ -462,7 +505,7 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
       _user_id: user.id,
       _amount: total,
       _purpose: 'airtime',
-      _meta: { network, phone, product_amount: amount, charge },
+      _meta: { network: network, phone: phone, product_amount: amount, charge: charge },
     });
     if (error) throw error;
     holdId = data as string;
@@ -475,14 +518,15 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
 
   let finalResult: ProviderResult | null = null;
   let finalProvider = '';
-  for (const provider of providersOrder) {
+  for (let i = 0; i < providersOrder.length; i++) {
+    const provider = providersOrder[i];
     const r = await providerBuyAirtime(provider, network, phone, amount);
-    attempts.push({ provider, result: r });
+    attempts.push({ provider: provider, result: r });
     await logApi(svc, {
       user_id: user.id,
-      provider,
+      provider: provider,
       endpoint: 'buy-airtime',
-      request: { network, phone, amount },
+      request: { network: network, phone: phone, amount: amount },
       response: r.body,
       status: r.status,
       error: r.error,
@@ -499,7 +543,6 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     }
   }
 
-  // FIX: Check that finalResult is not null before accessing
   if (!finalResult) {
     await svc.rpc('release_wallet_hold', {
       _hold_id: holdId,
@@ -509,8 +552,8 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
       User: user.email || user.id,
       Network: network,
       Phone: phone,
-      Amount: `₦${amount}`,
-      Attempts: attempts.map((a) => `${a.provider}: ${a.result.error || 'err'}`).join(' | '),
+      Amount: 'NGN' + amount,
+      Attempts: formatAttempts(attempts),
     });
     return fail('Service temporarily unavailable. Please try again later.', { refunded: true });
   }
@@ -519,13 +562,13 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     const { data: tx, error: cErr } = await svc.rpc('commit_wallet_hold', {
       _hold_id: holdId,
       _type: 'airtime',
-      _description: `${network} airtime ₦${amount} to ${phone}`,
+      _description: network + ' airtime NGN' + amount + ' to ' + phone,
       _meta: {
-        network,
-        phone,
+        network: network,
+        phone: phone,
         product_amount: amount,
         cost_price: amount,
-        charge,
+        charge: charge,
         profit: charge,
         provider: finalProvider,
         supplier_reference: finalResult.reference,
@@ -545,17 +588,17 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
       User: user.email || user.id,
       Network: network,
       Phone: phone,
-      Amount: `₦${amount}`,
-      Cashback: cashback > 0 ? `₦${cashback}` : '0',
+      Amount: 'NGN' + amount,
+      Cashback: cashback > 0 ? 'NGN' + cashback : '0',
       Retries: attempts.length - 1,
       Reference: finalResult.reference || '-',
     });
 
     return ok({
       tx_id: txId,
-      charge,
-      total,
-      cashback,
+      charge: charge,
+      total: total,
+      cashback: cashback,
       provider: finalProvider,
       retries: attempts.length - 1,
       response: finalResult.body,
@@ -567,16 +610,14 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
     _reason: finalResult.error || 'provider-failed',
   });
 
-  // Full detail for admin Telegram only
   tg('Airtime Failed', '❌', {
     User: user.email || user.id,
     Network: network,
     Phone: phone,
-    Amount: `₦${amount}`,
-    Attempts: attempts.map((a) => `${a.provider}: ${a.result.error || 'err'}`).join(' | '),
+    Amount: 'NGN' + amount,
+    Attempts: formatAttempts(attempts),
   });
 
-  // Clean message for the user only
   return fail(userSafeError(finalResult.error), {
     refunded: true,
   });
@@ -600,7 +641,8 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
   if (pErr || !plan) return fail('Selected plan is not available. Please choose another plan.');
   if (!plan.is_active) return fail('Selected plan is not available. Please choose another plan.');
 
-  const network = normalizeNetwork(String(plan.network || ''), String(plan.provider || plan.supplier || 'smeapi'));
+  const primaryProvider = String(plan.provider || plan.supplier || 'smeapi');
+  const network = normalizeNetwork(String(plan.network || ''), primaryProvider);
   const sellingPrice = Number(plan.selling_price);
   const charge = await getServiceCharge(svc, 'data', sellingPrice);
   const total = sellingPrice + charge;
@@ -614,10 +656,10 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
       _meta: {
         plan_id: plan.id,
         provider: plan.provider,
-        network,
-        phone,
+        network: network,
+        phone: phone,
         product_amount: sellingPrice,
-        charge,
+        charge: charge,
       },
     });
     if (error) throw error;
@@ -626,15 +668,12 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     return fail(userSafeError(e?.message));
   }
 
-  const primaryProvider = String(plan.provider || plan.supplier || 'smeapi');
   const secondaryProvider = primaryProvider === 'smeapi' ? 'smeplug' : 'smeapi';
 
-  // FIX: Query by provider AND normalized network name, not numeric ID
   const { data: alt } = await svc
     .from('data_plans')
     .select('*')
     .eq('provider', secondaryProvider)
-    .eq('network', plan.network) // Keep original for consistency with primary plan
     .eq('data_size', plan.data_size)
     .eq('validity', plan.validity)
     .eq('is_active', true)
@@ -647,18 +686,24 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
   let finalProviderPlanId = '';
 
   const tryList: Array<{ provider: string; providerPlanId: string }> = [
-    { provider: primaryProvider, providerPlanId: plan.plan_id },
+    { provider: primaryProvider, providerPlanId: String(plan.plan_id || plan.api_code || '') },
   ];
-  if (alt) tryList.push({ provider: secondaryProvider, providerPlanId: alt.plan_id });
+  if (alt) {
+    tryList.push({
+      provider: secondaryProvider,
+      providerPlanId: String(alt.plan_id || alt.api_code || ''),
+    });
+  }
 
-  for (const t of tryList) {
+  for (let i = 0; i < tryList.length; i++) {
+    const t = tryList[i];
     const r = await providerBuyData(t.provider, network, t.providerPlanId, phone);
     attempts.push({ provider: t.provider, result: r, plan_id: t.providerPlanId });
     await logApi(svc, {
       user_id: user.id,
       provider: t.provider,
       endpoint: 'buy-data',
-      request: { network, plan_id: t.providerPlanId, phone },
+      request: { network: network, plan_id: t.providerPlanId, phone: phone },
       response: r.body,
       status: r.status,
       error: r.error,
@@ -677,18 +722,17 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     }
   }
 
-  // FIX: Check that finalResult is not null before accessing
   if (!finalResult) {
     await svc.rpc('release_wallet_hold', {
       _hold_id: holdId,
       _reason: 'no-provider-response',
     });
-    tg('Data Failed', '❌', {
+    tg('Data Failed', 'X', {
       User: user.email || user.id,
       Network: network,
       Phone: phone,
-      Plan: `${plan.data_size} / ${plan.validity}`,
-      Attempts: attempts.map((a) => `${a.provider}: ${a.result.error || 'err'}`).join(' | '),
+      Plan: String(plan.data_size || '') + ' / ' + String(plan.validity || ''),
+      Attempts: formatAttempts(attempts),
     });
     return fail('Service temporarily unavailable. Please try again later.', { refunded: true });
   }
@@ -700,14 +744,21 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     const { data: tx, error: cErr } = await svc.rpc('commit_wallet_hold', {
       _hold_id: holdId,
       _type: 'data',
-      _description: `${network} ${plan.data_size} / ${plan.validity} to ${phone}`,
+      _description:
+        network +
+        ' ' +
+        String(plan.data_size || '') +
+        ' / ' +
+        String(plan.validity || '') +
+        ' to ' +
+        phone,
       _meta: {
         plan_id: plan.id,
-        network,
-        phone,
+        network: network,
+        phone: phone,
         product_amount: sellingPrice,
         cost_price: costPrice,
-        charge,
+        charge: charge,
         profit: dataProfit,
         provider: finalProvider,
         original_provider: primaryProvider,
@@ -725,22 +776,22 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     const txId = (tx as any)?.id || null;
     const cashback = await awardCashbackIfAny(svc, user.id, 'data', sellingPrice, txId);
 
-    tg('Data Success', '📶', {
+    tg('Data Success', 'OK', {
       Provider: finalProvider,
       User: user.email || user.id,
       Network: network,
       Phone: phone,
-      Plan: `${plan.data_size} / ${plan.validity}`,
-      Amount: `₦${sellingPrice}`,
-      Cashback: cashback > 0 ? `₦${cashback}` : '0',
+      Plan: String(plan.data_size || '') + ' / ' + String(plan.validity || ''),
+      Amount: 'NGN' + sellingPrice,
+      Cashback: cashback > 0 ? 'NGN' + cashback : '0',
       Retries: attempts.length - 1,
     });
 
     return ok({
       tx_id: txId,
-      charge,
-      total,
-      cashback,
+      charge: charge,
+      total: total,
+      cashback: cashback,
       provider: finalProvider,
       retries: attempts.length - 1,
       response: finalResult.body,
@@ -752,12 +803,12 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
     _reason: finalResult.error || 'provider-failed',
   });
 
-  tg('Data Failed', '❌', {
+  tg('Data Failed', 'X', {
     User: user.email || user.id,
     Network: network,
     Phone: phone,
-    Plan: `${plan.data_size} / ${plan.validity}`,
-    Attempts: attempts.map((a) => `${a.provider}: ${a.result.error || 'err'}`).join(' | '),
+    Plan: String(plan.data_size || '') + ' / ' + String(plan.validity || ''),
+    Attempts: formatAttempts(attempts),
   });
 
   return fail(userSafeError(finalResult.error), {
