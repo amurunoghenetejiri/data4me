@@ -244,12 +244,25 @@ function isRecoverable(status: number, body: any): boolean {
 }
 
 function formatAttempts(attempts: Array<{ provider: string; result: ProviderResult }>): string {
+  if (!attempts.length) return 'none';
   return attempts
     .map(function (a) {
-      return a.provider + ': ' + (a.result.error || 'err');
+      const st = a.result.status ? ' HTTP ' + a.result.status : '';
+      return a.provider + st + ' → ' + (a.result.ok ? 'success' : a.result.error || 'unknown error');
     })
     .join(' | ');
 }
+
+function lastError(attempts: Array<{ provider: string; result: ProviderResult }>): string {
+  if (!attempts.length) return 'No provider responded';
+  const last = attempts[attempts.length - 1];
+  return last.result.error || 'Unknown provider error';
+}
+
+function lastProvider(attempts: Array<{ provider: string; result: ProviderResult }>): string {
+  return attempts.length ? attempts[attempts.length - 1].provider : '-';
+}
+
 
 async function callSmeapi(path: string, body: any): Promise<ProviderResult> {
   if (!SMEAPI_KEY) {
