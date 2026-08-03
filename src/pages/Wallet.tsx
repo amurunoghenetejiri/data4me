@@ -216,7 +216,7 @@ export default function Wallet() {
             <div className="p-3 rounded-xl bg-white/10">
               <p className="opacity-70 text-xs">Spent</p>
               <p className="font-semibold">
-                ₦{user ? transactions.filter(t => t.type !== "wallet" && t.type !== "cashback").reduce((s, t) => s + t.amount, 0).toLocaleString() : "0"}
+                ₦{user ? transactions.filter(t => t.type !== "wallet" && String(t.type) !== "cashback").reduce((s, t) => s + t.amount, 0).toLocaleString() : "0"}
               </p>
             </div>
             <div className="p-3 rounded-xl bg-white/10">
@@ -443,8 +443,8 @@ export default function Wallet() {
                   <p className="text-sm font-medium truncate">{t.description}</p>
                   <p className="text-xs text-muted-foreground">{new Date(t.date).toLocaleDateString()}</p>
                 </div>
-                <span className={`text-sm font-semibold ${t.type === "wallet" || t.type === "cashback" ? "text-success" : ""}`}>
-                  {t.type === "wallet" || t.type === "cashback" ? "+" : "-"}₦{t.amount.toLocaleString()}
+                <span className={`text-sm font-semibold ${t.type === "wallet" || String(t.type) === "cashback" ? "text-success" : ""}`}>
+                  {t.type === "wallet" || String(t.type) === "cashback" ? "+" : "-"}₦{t.amount.toLocaleString()}
                 </span>
               </li>
             ))}
