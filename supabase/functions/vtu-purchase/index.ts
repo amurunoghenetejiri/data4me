@@ -568,16 +568,9 @@ async function handleAirtime(svc: any, user: { id: string; email?: string }, p: 
       status: r.status,
       error: r.error,
     });
-    if (r.ok) {
-      finalResult = r;
-      finalProvider = provider;
-      break;
-    }
-    if (!r.recoverable) {
-      finalResult = r;
-      finalProvider = provider;
-      break;
-    }
+    finalResult = r;
+    finalProvider = provider;
+    if (r.ok) break;
   }
 
   if (!finalResult) {
@@ -769,18 +762,10 @@ async function handleData(svc: any, user: { id: string; email?: string }, p: any
       status: r.status,
       error: r.error,
     });
-    if (r.ok) {
-      finalResult = r;
-      finalProvider = t.provider;
-      finalProviderPlanId = t.providerPlanId;
-      break;
-    }
-    if (!r.recoverable) {
-      finalResult = r;
-      finalProvider = t.provider;
-      finalProviderPlanId = t.providerPlanId;
-      break;
-    }
+    finalResult = r;
+    finalProvider = t.provider;
+    finalProviderPlanId = t.providerPlanId;
+    if (r.ok) break;
   }
 
   if (!finalResult) {
