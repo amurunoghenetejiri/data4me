@@ -26,7 +26,6 @@ function json(data: unknown, status = 200) {
   });
 }
 
-/** Map a notification type to the notification_settings column that gates it. */
 const SETTING_COLUMN: Record<string, string> = {
   wallet: "wallet",
   funding: "wallet",
@@ -85,7 +84,7 @@ async function getAccessToken() {
       scope: "https://www.googleapis.com/auth/firebase.messaging",
     }),
   );
-  const unsigned = `${header}.${claim}`;
+  const unsigned = header + "." + claim;
 
   const key = await crypto.subtle.importKey(
     "pkcs8",
@@ -111,7 +110,7 @@ async function getAccessToken() {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: `${unsigned}.${sig}`,
+      assertion: unsigned + "." + sig,
     }),
   });
 
@@ -131,11 +130,11 @@ async function sendFcm(
   icon?: string | null,
   image?: string | null,
 ) {
-  const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+  const url = "https://fcm.googleapis.com/v1/projects/" + projectId + "/messages:send";
   const res = await fetch(url, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: "Bearer " + accessToken,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -157,13 +156,12 @@ async function sendFcm(
   return { ok: res.ok, status: res.status, text };
 }
 
-/** True when FCM says this registration token should be dropped. */
 function isDeadToken(status: number, text: string) {
   if (status === 404) return true;
   const t = text.toUpperCase();
   return (
     t.includes("UNREGISTERED") ||
-    t.includes("INVALID_ARGUMENT") && t.includes("TOKEN") ||
+    (t.includes("INVALID_ARGUMENT") && t.includes("TOKEN")) ||
     t.includes("NOT_FOUND")
   );
 }
@@ -183,16 +181,19 @@ Deno.serve(async (req) => {
 
     const payload = (await req.json().catch(() => ({}))) as Body;
 
+    const authHeader = req.headers.get("Authorization") || "";
+    const jwt = authHeader.replace(/^Bearer\s+/i, "");
     const internalHeader = req.headers.get("x-internal-secret") || "";
+
+    const isServiceRole = !!jwt && jwt === serviceKey;
     const isInternal =
-      !!payload.internal && !!dispatchSecret && internalHeader === dispatchSecret;
+      !!payload.internal &&
+      (isServiceRole || (!!dispatchSecret && internalHeader === dispatchSecret));
 
     let callerId: string | null = null;
     let callerIsAdmin = false;
 
     if (!isInternal) {
-      const authHeader = req.headers.get("Authorization") || "";
-      const jwt = authHeader.replace("Bearer ", "");
       const { data: userData, error: userErr } = await svc.auth.getUser(jwt);
       if (userErr || !userData?.user) {
         return json({ success: false, error: "Unauthorized" }, 401);
@@ -219,7 +220,6 @@ Deno.serve(async (req) => {
     const icon = payload.icon ?? null;
     const image = payload.image ?? null;
 
-    // Respect user preferences (missing row = all product alerts on)
     const column = SETTING_COLUMN[type];
     if (column) {
       const { data: prefs } = await svc
@@ -232,7 +232,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Persist to notification history (skip when the DB trigger already did it)
     if (!isInternal) {
       const { error: insErr } = await svc.from("notifications").insert({
         user_id: userId,
@@ -315,7 +314,6 @@ Deno.serve(async (req) => {
     return json({ success: true, pushed, total: tokens.length, removed: dead.length });
   } catch (e) {
     console.error("[send-push] fatal:", (e as Error).message);
-    // Never throw: callers must not break because push failed.
     return json({ success: false, error: (e as Error).message || "Unknown error" }, 200);
   }
 });
