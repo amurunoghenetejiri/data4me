@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
+import { Bot,
   LayoutDashboard, Users, Receipt, ArrowDownToLine, ArrowUpFromLine, BadgeCheck,
   Package, BarChart3, Bell, Settings, ShieldCheck, FileClock, Lock, LifeBuoy,
   Database, LogOut, Menu, X, Wifi, CreditCard, Activity, Inbox, Sliders, ArrowLeft, Send, Server, Wallet
@@ -32,6 +32,7 @@ const nav = [
   { to: "/admin/pricing-charges", label: "Pricing & API Settings", icon: Sliders },
   { to: "/admin/vtu-providers", label: "VTU Providers", icon: Server },
   { to: "/admin/telegram", label: "Telegram Integration", icon: Send },
+  { to: "/admin/ai-control", label: "D4 AI Control", icon: Bot },
   { to: "/admin/settings", label: "System Settings", icon: Settings },
   { to: "/admin/accounts", label: "Admin Accounts", icon: ShieldCheck },
   { to: "/admin/audit", label: "Audit Logs", icon: FileClock },

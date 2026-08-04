@@ -52,6 +52,7 @@ import { KycPage, ReportsPage, AdminAccountsPage, SecurityPage, SupportPage, Dat
 import AdminVtuProviders from "./pages/admin/VtuProviders";
 import AdminMessages from "./pages/admin/Messages";
 import AdminTelegramIntegration from "./pages/admin/TelegramIntegration";
+import AdminAIControl from "./pages/admin/AIControl";
 import Messages from "./pages/Messages";
 
 const queryClient = new QueryClient();
@@ -98,6 +99,7 @@ const App = () => (
               <Route path="smeapi-status" element={<AdminVtuProviders />} />
               <Route path="messages" element={<AdminMessages />} />
               <Route path="telegram" element={<AdminTelegramIntegration />} />
+              <Route path="ai-control" element={<AdminAIControl />} />
             </Route>
             <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
