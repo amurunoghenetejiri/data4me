@@ -131,6 +131,69 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_action_logs: {
+        Row: {
+          actor_email: string | null
+          created_at: string
+          error: string | null
+          id: string
+          input: Json
+          is_admin: boolean
+          result: Json
+          success: boolean
+          tool: string
+          user_id: string | null
+        }
+        Insert: {
+          actor_email?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          input?: Json
+          is_admin?: boolean
+          result?: Json
+          success?: boolean
+          tool: string
+          user_id?: string | null
+        }
+        Update: {
+          actor_email?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          input?: Json
+          is_admin?: boolean
+          result?: Json
+          success?: boolean
+          tool?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_settings: {
+        Row: {
+          description: string | null
+          enabled: boolean
+          key: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          description?: string | null
+          enabled?: boolean
+          key: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          description?: string | null
+          enabled?: boolean
+          key?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       api_providers: {
         Row: {
           api_key_secret: string | null
