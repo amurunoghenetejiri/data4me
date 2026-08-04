@@ -14,6 +14,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
+function errMsg(e: unknown, fallback = "Something went wrong. Please try again."): string {
+  if (!e) return fallback;
+  if (typeof e === "string" && e.trim() && e.trim() !== "{}") return e.trim();
+  const any = e as Record<string, unknown>;
+  const candidates = [any.message, any.error, any.error_description, any.msg];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim() && c.trim() !== "{}") return c.trim();
+  }
+  // Supabase AuthError sometimes nests under context / cause
+  const nested = (any.context || any.cause || any.data) as Record<string, unknown> | undefined;
+  if (nested && typeof nested === "object") {
+    for (const c of [nested.message, nested.error, nested.msg]) {
+      if (typeof c === "string" && c.trim() && c.trim() !== "{}") return c.trim();
+    }
+  }
+  try {
+    const s = JSON.stringify(e);
+    if (s && s !== "{}" && s !== "null") return s;
+  } catch { /* noop */ }
+  return fallback;
+}
+
+
 const NIGERIAN_BANKS = [
   "Opay","PalmPay","Moniepoint","Kuda","Access Bank","GTBank","First Bank","UBA",
   "Zenith Bank","Fidelity Bank","Union Bank","Sterling Bank","Wema Bank",
@@ -38,6 +61,7 @@ export function AuthModal() {
   const { authOpen, closeAuth, login, register, openAuth } = useApp();
   const [tab, setTab] = useState<"login" | "register">("login");
   const [loginError, setLoginError] = useState<string>("");
+  const [registerError, setRegisterError] = useState<string>("");
   const [loginBusy, setLoginBusy] = useState(false);
 
   // Registration wizard state
@@ -55,7 +79,7 @@ export function AuthModal() {
   useEffect(() => { if (authOpen) setTab(authOpen); }, [authOpen]);
   useEffect(() => {
     if (!authOpen) {
-      setStep("account"); setOtp(""); setVerified(null); setLoginError("");
+      setStep("account"); setOtp(""); setVerified(null); setLoginError(""); setRegisterError("");
     }
   }, [authOpen]);
 
@@ -82,7 +106,7 @@ export function AuthModal() {
       await login(identifier, password);
       toast.success("Welcome back!");
     } catch (err: any) {
-      setLoginError(err.message || "Login failed");
+      setLoginError(errMsg(err, "Login failed"));
     } finally {
       setLoginBusy(false);
     }
@@ -126,7 +150,7 @@ export function AuthModal() {
       setVerified({ account_name: data.account_name, account_number: data.account_number, bank_name: bank.bank_name });
       setStep("verify");
     } catch (e: any) {
-      toast.error(e.message || "Bank verification failed");
+      toast.error(errMsg(e, "Bank verification failed"));
     } finally {
       setVerifyBusy(false);
     }
@@ -135,13 +159,21 @@ export function AuthModal() {
   async function confirmAndSendOtp() {
     if (!verified) return;
     setSignupBusy(true);
+    setRegisterError("");
     try {
-      const { needsOtp } = await register({
-        name: acct.name, username: acct.username, email: acct.email,
-        phone: acct.phone, password: acct.password,
+      const result = await register({
+        name: acct.name,
+        username: acct.username,
+        email: acct.email,
+        phone: acct.phone,
+        password: acct.password,
       });
-      // Save bank to localStorage so we can persist after OTP confirms session
-      try { localStorage.setItem("d4m_pending_bank", JSON.stringify(verified)); } catch { /* noop */ }
+      // Save bank so we can persist after OTP confirms session
+      try {
+        localStorage.setItem("d4m_pending_bank", JSON.stringify(verified));
+      } catch { /* noop */ }
+
+      const needsOtp = !!(result && result.needsOtp);
       if (!needsOtp) {
         await persistBankIfNeeded();
         toast.success("Account created!");
@@ -150,9 +182,25 @@ export function AuthModal() {
       }
       setStep("otp");
       setResendIn(60);
-      announceOtp(`OTP sent to ${acct.email}`);
-    } catch (e: any) {
-      toast.error(e.message || "Registration failed");
+      announceOtp("OTP sent to " + acct.email);
+    } catch (e: unknown) {
+      const msg = errMsg(e, "Registration failed. Please try again.");
+      // Friendlier messages for common Supabase auth errors
+      let friendly = msg;
+      const lower = msg.toLowerCase();
+      if (lower.includes("already registered") || lower.includes("already been registered") || lower.includes("user already")) {
+        friendly = "This email is already registered. Please log in instead.";
+      } else if (lower.includes("rate limit") || lower.includes("too many")) {
+        friendly = "Too many attempts. Wait a minute and try again.";
+      } else if (lower.includes("password")) {
+        friendly = "Password is too weak. Use at least 6 characters.";
+      } else if (lower.includes("email") && lower.includes("invalid")) {
+        friendly = "Enter a valid email address.";
+      } else if (lower.includes("network") || lower.includes("fetch")) {
+        friendly = "Network error. Check your connection and try again.";
+      }
+      setRegisterError(friendly);
+      toast.error(friendly);
     } finally {
       setSignupBusy(false);
     }
@@ -221,7 +269,7 @@ export function AuthModal() {
       setStep("done");
       closeAuth();
     } catch (e: any) {
-      toast.error(e.message || "Invalid or expired OTP");
+      toast.error(errMsg(e, "Invalid or expired OTP"));
     } finally {
       setOtpBusy(false);
     }
@@ -367,8 +415,13 @@ export function AuthModal() {
                   <p className="text-sm font-mono"><span className="text-muted-foreground font-sans">Account #:</span> {verified.account_number}</p>
                 </div>
                 <p className="text-xs text-muted-foreground">Confirm these details — they will be saved to your profile and used for withdrawals. An OTP will be sent <em>only after</em> you confirm.</p>
+                {registerError && (
+                  <div role="alert" className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2">
+                    {registerError}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" onClick={() => { setVerified(null); setStep("bank"); }}><ArrowLeft className="h-4 w-4 mr-2" />Edit</Button>
+                  <Button variant="outline" onClick={() => { setVerified(null); setRegisterError(""); setStep("bank"); }}><ArrowLeft className="h-4 w-4 mr-2" />Edit</Button>
                   <Button onClick={confirmAndSendOtp} disabled={signupBusy} className="bg-gradient-primary">
                     {signupBusy ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending OTP…</> : "Confirm & send OTP"}
                   </Button>
