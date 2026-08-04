@@ -315,7 +315,7 @@ const adminTools: Def[] = [
       args._remark = a.remark ?? `${a.action} via D4 AI`;
       const { error } = await c.userClient.rpc(fn, args);
       if (error) throw new Error(error.message);
-      await callFn(c, "telegram-notify", { action: "funding_admin_action", funding_id: a.id, status: a.action, admin: c.email }).catch(() => null);
+      try { await callFn(c, "telegram-notify", { action: "funding_admin_action", funding_id: a.id, status: a.action, admin: c.email }); } catch { /* non-fatal */ }
       return { ok: true, id: a.id, status: a.action };
     },
   },
@@ -522,10 +522,12 @@ export async function runTool(name: string, args: any, c: ToolCtx) {
   if (!def) return { error: `Unknown tool ${name}` };
 
   const log = async (result: any, ok: boolean, error?: string) => {
-    await c.svc.from("ai_action_logs").insert({
-      user_id: c.userId, actor_email: c.email, is_admin: c.isAdmin, tool: name,
-      input: args ?? {}, result: result ?? {}, success: ok, error: error ?? null,
-    }).catch(() => null);
+    try {
+      await c.svc.from("ai_action_logs").insert({
+        user_id: c.userId, actor_email: c.email, is_admin: c.isAdmin, tool: name,
+        input: args ?? {}, result: result ?? {}, success: ok, error: error ?? null,
+      });
+    } catch { /* logging must never break the action */ }
   };
 
   try {
