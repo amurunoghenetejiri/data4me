@@ -434,7 +434,7 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: window.location.origin + "/",
           data: {
             full_name: name,
             username: username.toLowerCase(),
@@ -443,7 +443,17 @@ async function ensureDedicatedAccount(_uid?: string): Promise<{
           },
         },
       });
-      if (error) throw error;
+      if (error) {
+        const msg = (error.message || "").trim();
+        if (!msg || msg === "{}") {
+          throw new Error("Could not create account. Try a different email or try again later.");
+        }
+        throw new Error(msg);
+      }
+      // Email already exists (Supabase hides this for privacy)
+      if (data?.user && Array.isArray((data.user as any).identities) && (data.user as any).identities.length === 0) {
+        throw new Error("This email is already registered. Please log in instead.");
+    }
 
       if (data.session && data.user && pendingRef) {
         try {
