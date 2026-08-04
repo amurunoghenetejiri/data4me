@@ -7,7 +7,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { useApp } from "@/context/AppContext";
 import { cn } from "@/lib/utils";
 
-type Msg = { id: string; role: "user" | "assistant"; content: string; image?: string };
+type Msg = { id: string; role: "user" | "assistant"; content: string; image?: string; tools?: string[] };
+
+const TOOL_LABELS: Record<string, string> = {
+  get_wallet: "Checking wallet balance",
+  list_transactions: "Reading transactions",
+  spending_summary: "Calculating spending",
+  find_plans: "Comparing data plans",
+  buy_data: "Buying data",
+  buy_airtime: "Buying airtime",
+  buy_electricity: "Paying electricity",
+  buy_cable: "Paying cable TV",
+  create_funding_request: "Creating funding request",
+  get_referrals: "Fetching referrals",
+  create_support_ticket: "Opening support ticket",
+};
+
+function toolLabel(name: string) {
+  return TOOL_LABELS[name] ?? name.replace(/^admin_/, "Admin: ").replace(/_/g, " ");
+}
 
 const LANGS = [
   { id: "en", label: "English" },
@@ -141,7 +159,13 @@ export default function D4AIAssistant() {
           const data = line.slice(6).trim();
           if (!data || data === "[DONE]") continue;
           try {
-            const delta = JSON.parse(data).choices?.[0]?.delta?.content;
+            const parsed = JSON.parse(data);
+            const tool = parsed.choices?.[0]?.delta?.d4_tool;
+            if (tool) {
+              setMessages((m) => m.map((x) => (x.id === assistantId ? { ...x, tools: [...(x.tools ?? []), tool] } : x)));
+              continue;
+            }
+            const delta = parsed.choices?.[0]?.delta?.content;
             if (delta) {
               full += delta;
               setMessages((m) => m.map((x) => (x.id === assistantId ? { ...x, content: full } : x)));
@@ -228,7 +252,16 @@ export default function D4AIAssistant() {
                   "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
                   m.role === "user" ? "bg-primary text-primary-foreground" : "text-foreground",
                 )}>
-                  {m.role === "assistant" ? (
+                  {m.role === "assistant" && m.tools?.length ? (
+                  <div className="flex flex-wrap gap-1.5 mb-1">
+                    {m.tools.map((t, i) => (
+                      <span key={`${t}-${i}`} className="text-[10px] px-2 py-0.5 rounded-full border border-primary/30 text-primary/90 bg-primary/5">
+                        ⚡ {toolLabel(t)}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                {m.role === "assistant" ? (
                     <div className="prose prose-sm dark:prose-invert max-w-none [&_a]:text-primary [&_p]:my-1 [&_ul]:my-1">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content || "…"}</ReactMarkdown>
                     </div>
