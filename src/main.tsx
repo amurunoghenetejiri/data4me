@@ -1,3 +1,4 @@
+import { registerAppServiceWorker } from "@/lib/pwa";
 import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
 import App from "./App.tsx";
@@ -8,3 +9,5 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </HelmetProvider>
 );
+
+registerAppServiceWorker();
