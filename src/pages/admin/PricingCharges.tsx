@@ -114,6 +114,11 @@ export default function PricingCharges() {
         ))}
       </div>
 
+      <div className="mb-5">
+        <ReferralSettingsCard />
+      </div>
+
+
       {loading ? <LoadingBlock /> : tab === "charges" ? (
         <GlassCard className="p-5">
           <p className="text-xs text-slate-400 mb-4">
