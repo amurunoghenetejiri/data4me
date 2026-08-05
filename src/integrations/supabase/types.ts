@@ -1077,14 +1077,72 @@ export type Database = {
           },
         ]
       }
+      push_deliveries: {
+        Row: {
+          action_url: string | null
+          attempts: number
+          body: string | null
+          created_at: string
+          delivered_at: string | null
+          error: string | null
+          id: string
+          notification_id: string | null
+          opened_at: string | null
+          sent_at: string
+          status: string
+          title: string | null
+          token: string | null
+          type: string | null
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          attempts?: number
+          body?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error?: string | null
+          id?: string
+          notification_id?: string | null
+          opened_at?: string | null
+          sent_at?: string
+          status?: string
+          title?: string | null
+          token?: string | null
+          type?: string | null
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          attempts?: number
+          body?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error?: string | null
+          id?: string
+          notification_id?: string | null
+          opened_at?: string | null
+          sent_at?: string
+          status?: string
+          title?: string | null
+          token?: string | null
+          type?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       push_tokens: {
         Row: {
           browser: string | null
           created_at: string
           device_name: string | null
           device_type: string | null
+          failure_count: number
           id: string
+          is_active: boolean
+          last_error: string | null
           last_seen: string
+          last_success_at: string | null
           platform: string | null
           token: string
           user_id: string
@@ -1094,8 +1152,12 @@ export type Database = {
           created_at?: string
           device_name?: string | null
           device_type?: string | null
+          failure_count?: number
           id?: string
+          is_active?: boolean
+          last_error?: string | null
           last_seen?: string
+          last_success_at?: string | null
           platform?: string | null
           token: string
           user_id: string
@@ -1105,8 +1167,12 @@ export type Database = {
           created_at?: string
           device_name?: string | null
           device_type?: string | null
+          failure_count?: number
           id?: string
+          is_active?: boolean
+          last_error?: string | null
           last_seen?: string
+          last_success_at?: string | null
           platform?: string | null
           token?: string
           user_id?: string
@@ -1116,33 +1182,45 @@ export type Database = {
       referral_rewards: {
         Row: {
           amount: number
+          beneficiary_id: string | null
           created_at: string
           id: string
+          kind: string
+          reference: string | null
           referred_id: string
           referrer_id: string
+          source_amount: number | null
           status: string
         }
         Insert: {
           amount?: number
+          beneficiary_id?: string | null
           created_at?: string
           id?: string
+          kind?: string
+          reference?: string | null
           referred_id: string
           referrer_id: string
+          source_amount?: number | null
           status?: string
         }
         Update: {
           amount?: number
+          beneficiary_id?: string | null
           created_at?: string
           id?: string
+          kind?: string
+          reference?: string | null
           referred_id?: string
           referrer_id?: string
+          source_amount?: number | null
           status?: string
         }
         Relationships: [
           {
             foreignKeyName: "referral_rewards_referred_id_fkey"
             columns: ["referred_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1154,6 +1232,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      referral_settings: {
+        Row: {
+          funding_percent: number
+          id: number
+          is_active: boolean
+          min_funding_amount: number
+          updated_at: string
+          welcome_bonus: number
+        }
+        Insert: {
+          funding_percent?: number
+          id?: number
+          is_active?: boolean
+          min_funding_amount?: number
+          updated_at?: string
+          welcome_bonus?: number
+        }
+        Update: {
+          funding_percent?: number
+          id?: number
+          is_active?: boolean
+          min_funding_amount?: number
+          updated_at?: string
+          welcome_bonus?: number
+        }
+        Relationships: []
+      }
+      scheduled_notifications: {
+        Row: {
+          action_url: string | null
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          image: string | null
+          result: Json | null
+          send_at: string
+          sent_at: string | null
+          status: string
+          title: string
+          type: string
+          user_ids: string[] | null
+        }
+        Insert: {
+          action_url?: string | null
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image?: string | null
+          result?: Json | null
+          send_at: string
+          sent_at?: string | null
+          status?: string
+          title: string
+          type?: string
+          user_ids?: string[] | null
+        }
+        Update: {
+          action_url?: string | null
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image?: string | null
+          result?: Json | null
+          send_at?: string
+          sent_at?: string | null
+          status?: string
+          title?: string
+          type?: string
+          user_ids?: string[] | null
+        }
+        Relationships: []
       }
       secure_secrets: {
         Row: {
