@@ -6,39 +6,63 @@ import { useApp } from "@/context/AppContext";
 import { supabase } from "@/integrations/supabase/client";
 import { referralLink } from "@/lib/referral";
 import { toast } from "sonner";
-import { Gift, Copy, Share2, Users, Wallet, Check } from "lucide-react";
+import { Gift, Copy, Share2, Users, Wallet, Check, TrendingUp } from "lucide-react";
+
+type Reward = {
+  id: string;
+  amount: number;
+  kind: string;
+  status: string;
+  created_at: string;
+  referrer_id: string;
+  referred_id: string;
+  source_amount: number | null;
+};
+
+type Settings = { welcome_bonus: number; funding_percent: number; is_active: boolean };
 
 export default function Referrals() {
   const { user, openAuth } = useApp();
   const [code, setCode] = useState<string>("");
   const [referrals, setReferrals] = useState<any[]>([]);
-  const [earned, setEarned] = useState(0);
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [settings, setSettings] = useState<Settings>({ welcome_bonus: 100, funding_percent: 2, is_active: true });
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
     (async () => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("referral_code")
-        .eq("id", user.id)
-        .maybeSingle();
+      const [{ data: profile }, { data: list }, { data: rw }, { data: st }] = await Promise.all([
+        supabase.from("profiles").select("referral_code").eq("id", user.id).maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("id, username, full_name, created_at")
+          .eq("referred_by", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50),
+        supabase
+          .from("referral_rewards")
+          .select("*")
+          .eq("referrer_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabase
+          .from("referral_settings")
+          .select("welcome_bonus, funding_percent, is_active")
+          .eq("id", 1)
+          .maybeSingle(),
+      ]);
+
       setCode(profile?.referral_code || user.referralCode || "");
-
-      const { data: list } = await supabase
-        .from("profiles")
-        .select("id, username, full_name, created_at")
-        .eq("referred_by", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
       setReferrals(list || []);
-
-      const { data: rewards } = await supabase
-        .from("referral_rewards")
-        .select("amount")
-        .eq("referrer_id", user.id);
-      const total = (rewards || []).reduce((s, r) => s + Number(r.amount || 0), 0);
-      setEarned(total);
+      setRewards((rw || []) as Reward[]);
+      if (st) {
+        setSettings({
+          welcome_bonus: Number(st.welcome_bonus),
+          funding_percent: Number(st.funding_percent),
+          is_active: !!st.is_active,
+        });
+      }
     })();
   }, [user?.id, user?.referralCode]);
 
@@ -53,6 +77,16 @@ export default function Referrals() {
   }
 
   const link = code ? referralLink(code) : "";
+  const earned = rewards
+    .filter((r) => r.referrer_id === user.id)
+    .reduce((s, r) => s + Number(r.amount || 0), 0);
+  const commissionEarned = rewards
+    .filter((r) => r.kind === "funding")
+    .reduce((s, r) => s + Number(r.amount || 0), 0);
+
+  const shareMessage =
+    `Join DATA4ME using my referral link and receive a welcome bonus after registration. ` +
+    `I'll also earn a reward whenever you fund your wallet.\n${link}`;
 
   function copyLink() {
     if (!link) return toast.error("Referral code not ready yet");
@@ -62,12 +96,17 @@ export default function Referrals() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  function shareWhatsApp() {
+  async function share() {
     if (!link) return toast.error("Referral code not ready yet");
-    const text =
-      `Join DATA4ME — buy data & airtime easily.\n` +
-      `Use my link and I earn ₦100 when you sign up:\n${link}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "DATA4ME", text: shareMessage });
+        return;
+      } catch {
+        /* user cancelled — fall through */
+      }
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank");
   }
 
   return (
@@ -77,7 +116,8 @@ export default function Referrals() {
           <Gift className="h-7 w-7 text-primary" /> Refer & Earn
         </h1>
         <p className="text-muted-foreground mt-1">
-          Invite friends. Earn <span className="text-foreground font-semibold">₦100</span> for every signup.
+          Friends get a <span className="text-foreground font-semibold">₦{settings.welcome_bonus.toLocaleString()}</span> welcome bonus.
+          You earn <span className="text-foreground font-semibold">{settings.funding_percent}%</span> of every wallet funding they make.
         </p>
       </div>
 
@@ -96,10 +136,10 @@ export default function Referrals() {
             <Button
               variant="outline"
               className="bg-transparent border-white/40 text-primary-foreground hover:bg-white/10"
-              onClick={shareWhatsApp}
+              onClick={share}
               disabled={!link}
             >
-              <Share2 className="h-4 w-4 mr-2" /> WhatsApp
+              <Share2 className="h-4 w-4 mr-2" /> Share
             </Button>
           </div>
           {code && (
@@ -110,30 +150,65 @@ export default function Referrals() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-6">
         <Card className="p-4 shadow-card">
           <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-wide">
-            <Users className="h-3.5 w-3.5" /> Friends joined
+            <Users className="h-3.5 w-3.5" /> Referrals
           </div>
           <p className="text-2xl font-bold mt-1 tabular-nums">{referrals.length}</p>
         </Card>
         <Card className="p-4 shadow-card">
           <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-wide">
-            <Wallet className="h-3.5 w-3.5" /> Total earned
+            <Wallet className="h-3.5 w-3.5" /> Earned
           </div>
-          <p className="text-2xl font-bold mt-1 tabular-nums">
-            ₦{earned.toLocaleString()}
-          </p>
+          <p className="text-2xl font-bold mt-1 tabular-nums">₦{earned.toLocaleString()}</p>
+        </Card>
+        <Card className="p-4 shadow-card">
+          <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-wide">
+            <TrendingUp className="h-3.5 w-3.5" /> Commission
+          </div>
+          <p className="text-2xl font-bold mt-1 tabular-nums">₦{commissionEarned.toLocaleString()}</p>
         </Card>
       </div>
 
       <Card className="p-5 shadow-card mb-6">
         <h3 className="font-semibold mb-3">How it works</h3>
         <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
-          <li>Copy your link and share it (WhatsApp, etc.).</li>
-          <li>Your friend opens the link and creates an account.</li>
-          <li>You get <b className="text-foreground">₦100</b> in your wallet automatically.</li>
+          <li>Share your link with friends.</li>
+          <li>They register — and instantly get a ₦{settings.welcome_bonus.toLocaleString()} welcome bonus.</li>
+          <li>
+            Every time they fund their wallet, you earn{" "}
+            <b className="text-foreground">{settings.funding_percent}%</b> automatically.
+          </li>
         </ol>
+      </Card>
+
+      <Card className="p-5 shadow-card mb-6">
+        <h3 className="font-semibold mb-3">Earnings history</h3>
+        {rewards.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">
+            No earnings yet. Share your link to start earning.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {rewards.map((r) => (
+              <li key={r.id} className="py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium capitalize">
+                    {r.kind === "funding" ? "Funding commission" : "Referral bonus"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(r.created_at).toLocaleString()}
+                    {r.source_amount ? ` • on ₦${Number(r.source_amount).toLocaleString()}` : ""}
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
+                  +₦{Number(r.amount).toLocaleString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <Card className="p-5 shadow-card">
@@ -155,8 +230,8 @@ export default function Referrals() {
                     {r.created_at ? new Date(r.created_at).toLocaleDateString() : ""}
                   </p>
                 </div>
-                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
-                  +₦100
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {settings.funding_percent}% per funding
                 </span>
               </li>
             ))}
@@ -165,4 +240,4 @@ export default function Referrals() {
       </Card>
     </div>
   );
-  }
+}

@@ -206,6 +206,22 @@ Deno.serve(async (req) => {
       callerIsAdmin = (roles || []).some((r: { role: string }) => r.role === "admin");
     }
 
+    // Delivery receipt: client acknowledges a push was delivered / opened.
+    const ack = (payload as { ack?: string }).ack;
+    if (ack && callerId) {
+      const column = ack === "opened" ? "opened_at" : "delivered_at";
+      const q = svc
+        .from("push_deliveries")
+        .update({ status: ack === "opened" ? "opened" : "delivered", [column]: new Date().toISOString() })
+        .eq("user_id", callerId)
+        .is(column, null);
+      if (payload.notification_id) q.eq("notification_id", payload.notification_id);
+      const { error } = await q;
+      if (error) console.error("[send-push] ack failed:", error.message);
+      return json({ success: true, ack });
+    }
+
+
     const userId = payload.user_id || callerId;
     if (!userId) return json({ success: false, error: "user_id required" }, 400);
 
@@ -232,27 +248,57 @@ Deno.serve(async (req) => {
       }
     }
 
+    let notificationId = payload.notification_id || null;
+
     if (!isInternal) {
-      const { error: insErr } = await svc.from("notifications").insert({
+      const { data: insRow, error: insErr } = await svc
+        .from("notifications")
+        .insert({
+          user_id: userId,
+          title,
+          body,
+          message: body,
+          type,
+          icon,
+          image,
+          action_url: actionUrl,
+          read: false,
+          is_read: false,
+          sent_by: callerId,
+        })
+        .select("id")
+        .maybeSingle();
+      if (insErr) console.error("[send-push] history insert failed:", insErr.message);
+      if (insRow?.id) notificationId = insRow.id as string;
+    }
+
+    async function logDelivery(
+      token: string | null,
+      status: string,
+      attempts: number,
+      error: string | null,
+    ) {
+      const { error: e } = await svc.from("push_deliveries").insert({
+        notification_id: notificationId,
         user_id: userId,
+        token,
         title,
         body,
-        message: body,
         type,
-        icon,
-        image,
         action_url: actionUrl,
-        read: false,
-        is_read: false,
-        sent_by: callerId,
+        status,
+        attempts,
+        error,
+        ...(status === "sent" ? { delivered_at: new Date().toISOString() } : {}),
       });
-      if (insErr) console.error("[send-push] history insert failed:", insErr.message);
+      if (e) console.error("[send-push] delivery log failed:", e.message);
     }
 
     const { data: tokens, error: tokErr } = await svc
       .from("push_tokens")
-      .select("token")
-      .eq("user_id", userId);
+      .select("token, failure_count")
+      .eq("user_id", userId)
+      .eq("is_active", true);
 
     if (tokErr) {
       console.error("[send-push] token lookup failed:", tokErr.message);
@@ -260,6 +306,7 @@ Deno.serve(async (req) => {
     }
 
     if (!tokens || tokens.length === 0) {
+      await logDelivery(null, "failed", 0, "no_device_token");
       return json({ success: true, pushed: 0, message: "No push tokens for user" });
     }
 
@@ -268,6 +315,7 @@ Deno.serve(async (req) => {
       accessToken = await getAccessToken();
     } catch (e) {
       console.error("[send-push] firebase auth failed:", (e as Error).message);
+      await logDelivery(null, "failed", 0, "firebase_auth_failed");
       return json({ success: true, pushed: 0, error: "firebase_auth_failed" });
     }
 
@@ -276,7 +324,7 @@ Deno.serve(async (req) => {
       action_url: actionUrl,
       title,
       body,
-      ...(payload.notification_id ? { notification_id: payload.notification_id } : {}),
+      ...(notificationId ? { notification_id: notificationId } : {}),
       ...Object.fromEntries(
         Object.entries(payload.data || {}).map(([k, v]) => [k, String(v)]),
       ),
@@ -286,24 +334,64 @@ Deno.serve(async (req) => {
     const dead: string[] = [];
 
     for (const row of tokens) {
-      try {
-        const r = await sendFcm(
-          accessToken,
-          projectId,
-          row.token,
-          title,
-          body,
-          dataMap,
-          icon,
-          image,
-        );
-        if (r.ok) pushed++;
-        else {
+      let attempts = 0;
+      let lastError = "";
+      let ok = false;
+
+      // up to 2 attempts (1 retry) for transient failures
+      while (attempts < 2 && !ok) {
+        attempts++;
+        try {
+          const r = await sendFcm(
+            accessToken,
+            projectId,
+            row.token,
+            title,
+            body,
+            dataMap,
+            icon,
+            image,
+          );
+          if (r.ok) {
+            ok = true;
+            break;
+          }
+          lastError = `${r.status} ${r.text}`.slice(0, 500);
           console.error("[send-push] fcm error", r.status, r.text);
-          if (isDeadToken(r.status, r.text)) dead.push(row.token);
+          if (isDeadToken(r.status, r.text)) {
+            dead.push(row.token);
+            break;
+          }
+          if (r.status < 500 && r.status !== 429) break;
+          await new Promise((res) => setTimeout(res, 600));
+        } catch (e) {
+          lastError = (e as Error).message.slice(0, 500);
+          console.error("[send-push] fcm exception:", lastError);
+          await new Promise((res) => setTimeout(res, 600));
         }
-      } catch (e) {
-        console.error("[send-push] fcm exception:", (e as Error).message);
+      }
+
+      if (ok) {
+        pushed++;
+        await logDelivery(row.token, "sent", attempts, null);
+        await svc
+          .from("push_tokens")
+          .update({
+            failure_count: 0,
+            last_error: null,
+            last_success_at: new Date().toISOString(),
+          })
+          .eq("token", row.token);
+      } else {
+        await logDelivery(row.token, "failed", attempts, lastError || "unknown_error");
+        await svc
+          .from("push_tokens")
+          .update({
+            failure_count: (row.failure_count || 0) + 1,
+            last_error: lastError || "unknown_error",
+            ...((row.failure_count || 0) + 1 >= 5 ? { is_active: false } : {}),
+          })
+          .eq("token", row.token);
       }
     }
 

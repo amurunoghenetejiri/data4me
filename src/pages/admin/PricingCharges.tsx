@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Sliders, Plug, Save, Loader2, Plus, Trash2, Power } from "lucide-react";
 import { GlassCard, PageHead, LoadingBlock } from "./_shared";
+import { ReferralSettingsCard } from "@/components/admin/ReferralSettingsCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,6 +113,11 @@ export default function PricingCharges() {
           </button>
         ))}
       </div>
+
+      <div className="mb-5">
+        <ReferralSettingsCard />
+      </div>
+
 
       {loading ? <LoadingBlock /> : tab === "charges" ? (
         <GlassCard className="p-5">
