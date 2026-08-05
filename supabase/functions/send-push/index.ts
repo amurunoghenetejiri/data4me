@@ -206,6 +206,22 @@ Deno.serve(async (req) => {
       callerIsAdmin = (roles || []).some((r: { role: string }) => r.role === "admin");
     }
 
+    // Delivery receipt: client acknowledges a push was delivered / opened.
+    const ack = (payload as { ack?: string }).ack;
+    if (ack && callerId) {
+      const column = ack === "opened" ? "opened_at" : "delivered_at";
+      const q = svc
+        .from("push_deliveries")
+        .update({ status: ack === "opened" ? "opened" : "delivered", [column]: new Date().toISOString() })
+        .eq("user_id", callerId)
+        .is(column, null);
+      if (payload.notification_id) q.eq("notification_id", payload.notification_id);
+      const { error } = await q;
+      if (error) console.error("[send-push] ack failed:", error.message);
+      return json({ success: true, ack });
+    }
+
+
     const userId = payload.user_id || callerId;
     if (!userId) return json({ success: false, error: "user_id required" }, 400);
 
