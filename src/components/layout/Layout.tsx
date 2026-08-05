@@ -4,6 +4,8 @@ import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { AuthModal } from "../AuthModal";
 import { LiveActivity } from "../LiveActivity";
+import { InstallAppPrompt } from "../InstallAppPrompt";
+import { PushPermissionPrompt } from "../PushPermissionPrompt";
 
 const D4AIAssistant = lazy(() => import("../ai/D4AIAssistant"));
 
@@ -19,6 +21,8 @@ export default function Layout() {
       <Footer />
       <AuthModal />
       <LiveActivity />
+      <InstallAppPrompt />
+      <PushPermissionPrompt />
       <Suspense fallback={null}>
         <D4AIAssistant />
       </Suspense>

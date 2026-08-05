@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Bot,
   LayoutDashboard, Users, Receipt, ArrowDownToLine, ArrowUpFromLine, BadgeCheck,
   Package, BarChart3, Bell, Settings, ShieldCheck, FileClock, Lock, LifeBuoy,
-  Database, LogOut, Menu, X, Wifi, CreditCard, Activity, Inbox, Sliders, ArrowLeft, Send, Server, Wallet
+  Database, LogOut, Menu, X, Wifi, CreditCard, Activity, Inbox, Sliders, ArrowLeft, Send, Server, Wallet, Smartphone
 } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ const nav = [
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
   { to: "/admin/activity", label: "Activity Center", icon: Activity },
   { to: "/admin/notifications", label: "Notifications", icon: Bell },
+  { to: "/admin/devices", label: "Registered Devices", icon: Smartphone },
   { to: "/admin/payment-settings", label: "Payment Settings", icon: CreditCard },
   { to: "/admin/pricing-charges", label: "Pricing & API Settings", icon: Sliders },
   { to: "/admin/vtu-providers", label: "VTU Providers", icon: Server },

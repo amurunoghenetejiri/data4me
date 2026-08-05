@@ -24,9 +24,11 @@ const navItems = [
   { to: "/electricity", label: "Electricity" },
   { to: "/transfer", label: "Transfer" },
   { to: "/transactions", label: "Transactions" },
+  { to: "/referrals", label: "Referrals" },
 ];
 
 const moreItems = [
+  { to: "/referrals", label: "Refer & Earn" },
   { to: "/networks", label: "Networks" },
   { to: "/pricing", label: "Pricing" },
   { to: "/chat", label: "Community Chat" },

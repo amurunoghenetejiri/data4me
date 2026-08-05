@@ -53,6 +53,7 @@ import AdminVtuProviders from "./pages/admin/VtuProviders";
 import AdminMessages from "./pages/admin/Messages";
 import AdminTelegramIntegration from "./pages/admin/TelegramIntegration";
 import AdminAIControl from "./pages/admin/AIControl";
+import AdminRegisteredDevices from "./pages/admin/RegisteredDevices";
 import Messages from "./pages/Messages";
 
 const queryClient = new QueryClient();
@@ -100,6 +101,7 @@ const App = () => (
               <Route path="messages" element={<AdminMessages />} />
               <Route path="telegram" element={<AdminTelegramIntegration />} />
               <Route path="ai-control" element={<AdminAIControl />} />
+              <Route path="devices" element={<AdminRegisteredDevices />} />
             </Route>
             <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
