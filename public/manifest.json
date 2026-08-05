@@ -1,13 +1,28 @@
 {
-  "name": "DATA4ME",
+  "id": "/",
+  "name": "DATA4ME – Data, Airtime & Bills",
   "short_name": "DATA4ME",
   "description": "Fast, Secure & Reliable VTU platform for buying cheap data, airtime, electricity tokens, cable TV subscriptions and more.",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
   "background_color": "#080c16",
-"theme_color": "#080c16",
+  "theme_color": "#080c16",
+  "lang": "en-NG",
+  "categories": ["finance", "utilities", "shopping"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Buy Data", "url": "/buy-data", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Buy Airtime", "url": "/buy-airtime", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Fund Wallet", "url": "/wallet", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Refer & Earn", "url": "/referrals", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]
 }
