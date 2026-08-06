@@ -59,15 +59,32 @@ export async function registerPushToken(userId: string, opts?: { silent?: boolea
     return { ok: false, error: "Permission denied" };
   }
 
-  let registration: ServiceWorkerRegistration;
+let registration: ServiceWorkerRegistration;
   try {
+    // Drop old SW if it was registered with a different Firebase version
+    const existing = await navigator.serviceWorker.getRegistrations();
+    for (const reg of existing) {
+      const script = reg.active?.scriptURL || reg.waiting?.scriptURL || reg.installing?.scriptURL || "";
+      if (script.includes("firebase-messaging-sw.js")) {
+        await reg.unregister();
+      }
+    }
+
     registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
       scope: "/firebase-cloud-messaging-push-scope",
+      updateViaCache: "none",
     });
     await navigator.serviceWorker.ready;
   } catch (e) {
-    return { ok: false, error: (e as Error).message || "Service worker failed" };
-  }
+    const msg = (e as Error).message || "Service worker failed";
+    if (/version/i.test(msg)) {
+      return {
+        ok: false,
+        error: "Notification storage is outdated. Clear site data for this site and try Enable again.",
+      };
+    }
+    return { ok: false, error: msg };
+    }
 
   const messaging = await getFirebaseMessaging();
   if (!messaging) {
