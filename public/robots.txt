@@ -1,11 +1,4 @@
 User-agent: *
-Allow: /
-Disallow: /admin
-Disallow: /admin/
-Disallow: /dashboard
-Disallow: /wallet
-Disallow: /settings
-Disallow: /profile
-Disallow: /reset-password
+Disallow: /
 
-Sitemap: https://data4me.name.ng/sitemap.xml
+# Site is temporarily private / under maintenance
