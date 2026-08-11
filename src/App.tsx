@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider } from "@/context/AppContext";
 import { captureReferralFromUrl } from "@/lib/referral";
 import Layout from "@/components/layout/Layout";
+import PrivateAccess from "@/components/PrivateAccess";
 import Home from "./pages/Home";
 import BuyData from "./pages/BuyData";
 import BuyAirtime from "./pages/BuyAirtime";
@@ -70,71 +71,73 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner position="top-right" richColors />
-      <AppProvider>
-        <BrowserRouter>
-          <ReferralCapture />
-          <Routes>
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<AdminDashboard />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="users/:id" element={<AdminUserDetail />} />
-              <Route path="transactions" element={<AdminTransactions />} />
-              <Route path="deposits" element={<AdminDeposits />} />
-              <Route path="receipt-queue" element={<ReceiptQueue />} />
-              <Route path="withdrawals" element={<AdminWithdrawals />} />
-              <Route path="kyc" element={<KycPage />} />
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="data-plans" element={<AdminDataPlans />} />
-              <Route path="reports" element={<ReportsPage />} />
-              <Route path="notifications" element={<AdminBroadcast />} />
-              <Route path="settings" element={<AdminSettings />} />
-              <Route path="payment-settings" element={<AdminPaymentSettings />} />
-              <Route path="pricing-charges" element={<AdminPricingCharges />} />
-              <Route path="activity" element={<AdminActivityCenter />} />
-              <Route path="accounts" element={<AdminAccountsPage />} />
-              <Route path="audit" element={<AdminAuditLogs />} />
-              <Route path="security" element={<SecurityPage />} />
-              <Route path="support" element={<SupportPage />} />
-              <Route path="database" element={<DatabasePage />} />
-              <Route path="vtu-providers" element={<AdminVtuProviders />} />
-              <Route path="smeapi-status" element={<AdminVtuProviders />} />
-              <Route path="messages" element={<AdminMessages />} />
-              <Route path="telegram" element={<AdminTelegramIntegration />} />
-              <Route path="ai-control" element={<AdminAIControl />} />
-              <Route path="devices" element={<AdminRegisteredDevices />} />
-            </Route>
-            <Route element={<Layout />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/messages" element={<Messages />} />
-              <Route path="/buy-data" element={<BuyData />} />
-              <Route path="/buy-airtime" element={<BuyAirtime />} />
-              <Route path="/networks" element={<Networks />} />
-              <Route path="/pricing" element={<Pricing />} />
-              <Route path="/transactions" element={<Transactions />} />
-              <Route path="/wallet" element={<Wallet />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/transfer" element={<Transfer />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/cable" element={<Cable />} />
-              <Route path="/electricity" element={<Electricity />} />
-              <Route path="/faq" element={<FAQ />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/referrals" element={<Referrals />} />
-              <Route path="/support" element={<Support />} />
-              <Route path="/notifications" element={<Notifications />} />
-              <Route path="/bank" element={<Bank />} />
-              <Route path="/withdraw" element={<Withdraw />} />
-              <Route path="/chat" element={<Chat />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </AppProvider>
+      <PrivateAccess>
+        <AppProvider>
+          <BrowserRouter>
+            <ReferralCapture />
+            <Routes>
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="users/:id" element={<AdminUserDetail />} />
+                <Route path="transactions" element={<AdminTransactions />} />
+                <Route path="deposits" element={<AdminDeposits />} />
+                <Route path="receipt-queue" element={<ReceiptQueue />} />
+                <Route path="withdrawals" element={<AdminWithdrawals />} />
+                <Route path="kyc" element={<KycPage />} />
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="data-plans" element={<AdminDataPlans />} />
+                <Route path="reports" element={<ReportsPage />} />
+                <Route path="notifications" element={<AdminBroadcast />} />
+                <Route path="settings" element={<AdminSettings />} />
+                <Route path="payment-settings" element={<AdminPaymentSettings />} />
+                <Route path="pricing-charges" element={<AdminPricingCharges />} />
+                <Route path="activity" element={<AdminActivityCenter />} />
+                <Route path="accounts" element={<AdminAccountsPage />} />
+                <Route path="audit" element={<AdminAuditLogs />} />
+                <Route path="security" element={<SecurityPage />} />
+                <Route path="support" element={<SupportPage />} />
+                <Route path="database" element={<DatabasePage />} />
+                <Route path="vtu-providers" element={<AdminVtuProviders />} />
+                <Route path="smeapi-status" element={<AdminVtuProviders />} />
+                <Route path="messages" element={<AdminMessages />} />
+                <Route path="telegram" element={<AdminTelegramIntegration />} />
+                <Route path="ai-control" element={<AdminAIControl />} />
+                <Route path="devices" element={<AdminRegisteredDevices />} />
+              </Route>
+              <Route element={<Layout />}>
+                <Route path="/" element={<Home />} />
+                <Route path="/messages" element={<Messages />} />
+                <Route path="/buy-data" element={<BuyData />} />
+                <Route path="/buy-airtime" element={<BuyAirtime />} />
+                <Route path="/networks" element={<Networks />} />
+                <Route path="/pricing" element={<Pricing />} />
+                <Route path="/transactions" element={<Transactions />} />
+                <Route path="/wallet" element={<Wallet />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/transfer" element={<Transfer />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/cable" element={<Cable />} />
+                <Route path="/electricity" element={<Electricity />} />
+                <Route path="/faq" element={<FAQ />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/referrals" element={<Referrals />} />
+                <Route path="/support" element={<Support />} />
+                <Route path="/notifications" element={<Notifications />} />
+                <Route path="/bank" element={<Bank />} />
+                <Route path="/withdraw" element={<Withdraw />} />
+                <Route path="/chat" element={<Chat />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="*" element={<NotFound />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </AppProvider>
+      </PrivateAccess>
     </TooltipProvider>
   </QueryClientProvider>
 );
